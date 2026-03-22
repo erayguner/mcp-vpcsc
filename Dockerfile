@@ -1,6 +1,8 @@
 FROM python:3.13-slim
 
-# Install gcloud CLI for tools that call gcloud commands
+# Install uv and gcloud CLI
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
@@ -13,10 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
 COPY src/ src/
 
-RUN pip install --no-cache-dir .
+RUN uv sync --frozen --no-dev --no-editable
 
 # Run as non-root user — principle of least privilege
 RUN adduser --disabled-password --gecos "" --uid 1001 appuser \
@@ -29,4 +31,4 @@ ENV PORT=8080
 
 EXPOSE 8080
 
-CMD ["python", "-m", "vpcsc_mcp.server"]
+CMD ["uv", "run", "python", "-m", "vpcsc_mcp.server"]
