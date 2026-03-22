@@ -1,0 +1,35 @@
+# ── Required ──────────────────────────────────────────────────────────────────
+project_id = "your-gcp-project-id"
+
+# ── Optional overrides ───────────────────────────────────────────────────────
+# region           = "europe-west2"
+# name             = "vpcsc-mcp"
+# image_tag        = "latest"
+
+# ── Security ─────────────────────────────────────────────────────────────────
+# Default: internal-only (requires gcloud proxy for access)
+# ingress = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+
+# Who can invoke the MCP server (grant roles/run.invoker)
+# invoker_members = [
+#   "serviceAccount:agent@your-project.iam.gserviceaccount.com",
+#   "group:platform-team@your-org.com",
+#   "user:developer@your-org.com",
+# ]
+
+# ── Networking ───────────────────────────────────────────────────────────────
+# VPC connector for private Google API access
+# vpc_connector_id = "projects/your-project/locations/europe-west2/connectors/your-connector"
+
+# ── Scaling ──────────────────────────────────────────────────────────────────
+# min_instances = 0    # scale-to-zero
+# max_instances = 5
+# cpu           = "1"
+# memory        = "512Mi"
+
+# ── Labels ───────────────────────────────────────────────────────────────────
+# labels = {
+#   team        = "platform"
+#   environment = "prod"
+#   cost-centre = "12345"
+# }

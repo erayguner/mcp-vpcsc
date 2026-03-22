@@ -1,0 +1,106 @@
+# VPC-SC MCP Server
+
+An MCP server that helps AI agents and developers set up, manage, and troubleshoot Google Cloud VPC Service Controls and Organisation Policies.
+
+Built with Python MCP SDK v1.26.0 (FastMCP). Deployable locally via stdio or remotely on Cloud Run via streamable-http.
+
+## What it does
+
+| Category | Tools | Examples |
+|---|---|---|
+| **gcloud operations** | 9 | List perimeters, query audit logs, check dry-run status, update resources/services |
+| **Terraform generation** | 8 | Generate HCL for perimeters, access levels, bridges, ingress/egress rules, validate output |
+| **Analysis** | 7 | Troubleshoot violations, recommend services by workload, validate identities |
+| **Rule generation** | 6 | Produce YAML for gcloud, apply pre-built patterns for BigQuery/Storage/Vertex AI |
+| **VPC-SC diagnostics** | 2 | Project readiness scan with protection gap analysis, implementation guide with Terraform |
+| **Org policy diagnostics** | 2 | Org policy compliance scan (COMPLIANT/NON-COMPLIANT/NOT SET), Terraform generator |
+| **Resources** | 5 | Supported services list, workload guides, common patterns |
+| **Prompts** | 3 | Perimeter design, troubleshoot denial, migration planning |
+
+**34 tools, 5 resources, 3 prompts.** All 34 tools carry MCP `ToolAnnotations` (32 read-only, 2 destructive).
+
+## Security and governance
+
+- **Command allowlist** — only 9 gcloud subcommands and 11 gcloud flags permitted
+- **Argument validation** — shell metacharacters and privilege-escalation flags rejected
+- **Write operations require confirmation** — preview by default, `confirm=True` to execute
+- **Tool annotations** — every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`
+- **Output sanitisation** — strips prompt-injection patterns from tool results
+- **Non-root container** — runs as UID 1001
+- **Read-only SA** — no write roles for Access Context Manager
+- **Lifespan checks** — validates gcloud CLI at startup; graceful shutdown on SIGTERM
+- **Health endpoint** — `/health` for Cloud Run probes
+- **Localhost binding** — HTTP transport binds to 127.0.0.1 locally; 0.0.0.0 only on Cloud Run
+- **120s command timeout** — hung gcloud processes killed automatically
+
+See [Security and Governance](docs/security.md) for the full threat model and controls.
+
+## Project layout
+
+```
+src/vpcsc_mcp/
+  server.py                 FastMCP server, lifespan, health check, resources, prompts
+  tools/
+    gcloud_ops.py           gcloud CLI tools with allowlist, validation, timeout
+    terraform_gen.py        Terraform HCL generators, input validation, terraform validate
+    analysis.py             Troubleshooting, recommendations, validation
+    rule_gen.py             Ingress/egress YAML and pattern library
+    diagnostic.py           VPC-SC project diagnostics + implementation guide
+    org_policy.py           Org policy compliance scan + Terraform generator
+    safety.py               Tool annotations, output sanitisation, result truncation
+  data/
+    services.py             53 supported services, workload recommendations, method selectors
+    patterns.py             Pre-built ingress/egress patterns, troubleshooting guide
+
+terraform/                  Cloud Run deployment (Terraform >= 1.14, Google provider ~> 7.0)
+  modules/mcp-server/       Reusable module: Cloud Run + SA + Artifact Registry + IAM + monitoring
+
+examples/
+  adk-agent/                Google ADK single agent (all 34 tools)
+  adk-multi-agent/          Google ADK multi-agent (4 specialists + coordinator)
+
+scripts/
+  cloudshell-setup.sh       One-command Cloud Shell setup
+  run-diagnostic.py         Direct diagnostic CLI (no LLM needed)
+
+tests/                      18 tests
+docs/                       8 documents (getting-started, 3 runbooks, guide, security, architecture, README)
+Dockerfile                  Python 3.13 + gcloud, non-root
+cloudbuild.yaml             CI/CD: build, push, deploy
+```
+
+## Key versions
+
+| Component | Version |
+|---|---|
+| Python | >= 3.10 |
+| MCP SDK (`mcp`) | 1.26.0 |
+| Terraform | >= 1.14 |
+| Google provider | ~> 7.0 (7.24.0) |
+| Google ADK (`google-adk`) | >= 1.27.0 (optional) |
+
+## Getting started
+
+**First time?** Start here: **[Getting Started](docs/getting-started.md)** — 3 paths (local, Cloud Shell, Cloud Run), all under 5 minutes.
+
+| Environment | Guide | Time |
+|---|---|---|
+| Local + Gemini CLI | [Getting Started](docs/getting-started.md#local-setup) | 2 min |
+| Cloud Shell + Gemini | [Getting Started](docs/getting-started.md#cloud-shell-setup) | 3 min |
+| Cloud Run (production) | [Getting Started](docs/getting-started.md#cloud-run-setup) | 10 min |
+
+## Runbooks (detailed)
+
+| Runbook | For |
+|---|---|
+| [Local Setup](docs/runbook-local.md) | Full local reference, HTTP transport, ADK agents, troubleshooting |
+| [Cloud Shell](docs/runbook-cloudshell.md) | Direct CLI, ADK web/terminal, E2E test, auth details |
+| [Cloud Run](docs/runbook-cloud-run.md) | Terraform, build, deploy, security controls, teardown |
+
+## Reference
+
+| Document | Content |
+|---|---|
+| [MCP Server Guide](docs/mcp-server-guide.md) | All 34 tools, validation rules, Terraform module patterns, end-to-end examples |
+| [Security](docs/security.md) | Threat model, command allowlists, tool annotations, governance controls |
+| [Architecture](docs/architecture.md) | Component diagrams, data flows, deployment patterns, design decisions |

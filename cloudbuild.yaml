@@ -1,0 +1,58 @@
+# Cloud Build pipeline for the VPC-SC MCP Server
+#
+# Trigger this manually or via a Cloud Build trigger:
+#   gcloud builds submit --region=europe-west2 \
+#     --config=cloudbuild.yaml \
+#     --substitutions=_REGION=europe-west2,_REPO=vpcsc-mcp,_SERVICE=vpcsc-mcp
+#
+# Required substitutions:
+#   _REGION  — GCP region (default: europe-west2)
+#   _REPO    — Artifact Registry repository name (default: vpcsc-mcp)
+#   _SERVICE — Cloud Run service name (default: vpcsc-mcp)
+
+substitutions:
+  _REGION: europe-west2
+  _REPO: vpcsc-mcp
+  _SERVICE: vpcsc-mcp
+
+steps:
+  # Build the container image
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
+      - .
+    id: build
+
+  # Push to Artifact Registry
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}
+    id: push
+    waitFor: [build]
+
+  # Deploy to Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}
+      - --region=${_REGION}
+      - --no-allow-unauthenticated
+      - --platform=managed
+    id: deploy
+    waitFor: [push]
+
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

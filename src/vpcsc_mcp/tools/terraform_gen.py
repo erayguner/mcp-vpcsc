@@ -1,0 +1,643 @@
+"""Tools for generating Terraform HCL configurations for VPC-SC resources."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import re
+import shutil
+import sys
+import tempfile
+import textwrap
+
+_TF_IDENTIFIER = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*$")
+_NUMERIC = re.compile(r"^[0-9]+$")
+_SERVICE_API = re.compile(r"^[a-z0-9.-]+\.googleapis\.com$")
+
+
+def _tf_log(message: str) -> None:
+    print(f"[vpcsc-mcp] TOOL: {message}", file=sys.stderr, flush=True)
+
+
+def _sanitise_hcl_string(value: str) -> str:
+    """Escape characters that break HCL quoted strings."""
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
+def _hcl_list(items: list[str], indent: int = 4) -> str:
+    """Format a list of strings as HCL list."""
+    pad = " " * indent
+    if len(items) <= 3:
+        return "[" + ", ".join(f'"{i}"' for i in items) + "]"
+    inner = ",\n".join(f'{pad}  "{i}"' for i in items)
+    return f"[\n{inner},\n{pad}]"
+
+
+_PROVIDER_BLOCK = textwrap.dedent("""\
+    terraform {
+      required_version = ">= 1.5"
+      required_providers {
+        google = {
+          source  = "hashicorp/google"
+          version = "~> 7.0"
+        }
+      }
+    }
+
+    provider "google" {
+      project = "validation-only"
+      region  = "europe-west2"
+    }
+    """)
+
+_TF_TIMEOUT = 60  # seconds per terraform command
+
+
+async def _run_tf(args: list[str], cwd: str) -> tuple[int, str, str]:
+    """Run a terraform command and return (returncode, stdout, stderr)."""
+    proc = await asyncio.create_subprocess_exec(
+        "terraform", *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=cwd,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=_TF_TIMEOUT)
+    except asyncio.TimeoutError:
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+        return 1, "", f"terraform {args[0]} timed out after {_TF_TIMEOUT}s"
+    return proc.returncode, stdout.decode(), stderr.decode()
+
+
+def register_terraform_tools(mcp) -> None:
+    """Register all Terraform generation tools on the FastMCP server."""
+
+    from vpcsc_mcp.tools.safety import GENERATE, DIAGNOSTIC
+
+    @mcp.tool(annotations=GENERATE)
+    def generate_perimeter_terraform(
+        name: str,
+        policy_id: str,
+        project_numbers: list[str],
+        restricted_services: list[str],
+        title: str | None = None,
+        dry_run: bool = True,
+        access_level_names: list[str] | None = None,
+    ) -> str:
+        """Generate Terraform HCL for a VPC-SC regular service perimeter.
+
+        Args:
+            name: The perimeter name (alphanumeric and underscores).
+            policy_id: The access policy ID (numeric).
+            project_numbers: List of project numbers to include (just numbers, no 'projects/' prefix).
+            restricted_services: List of GCP API services to restrict (e.g. 'storage.googleapis.com').
+            title: Human-readable title. Defaults to name.
+            dry_run: Whether to use dry-run mode (spec block). Default True.
+            access_level_names: Optional list of access level names to allow.
+        """
+        # Validate inputs
+        if not _TF_IDENTIFIER.match(name):
+            return f"Error: name '{name}' is not a valid Terraform identifier (use alphanumeric + underscores, start with letter)."
+        if not _NUMERIC.match(policy_id):
+            return f"Error: policy_id '{policy_id}' must be numeric."
+        for pn in project_numbers:
+            if not _NUMERIC.match(pn):
+                return f"Error: project number '{pn}' must be numeric (no 'projects/' prefix)."
+        for svc in restricted_services:
+            if not _SERVICE_API.match(svc):
+                return f"Error: service '{svc}' must match format 'name.googleapis.com'."
+
+        title = _sanitise_hcl_string(title or name)
+        mode = "dry-run" if dry_run else "enforced"
+        _tf_log(f"generate_perimeter_terraform({name}, {len(project_numbers)} projects, {len(restricted_services)} services, {mode})")
+        resources_hcl = _hcl_list([f"projects/{p}" for p in project_numbers], indent=4)
+        services_hcl = _hcl_list(restricted_services, indent=4)
+
+        access_levels_block = ""
+        if access_level_names:
+            al_refs = [f"accessPolicies/{policy_id}/accessLevels/{al}" for al in access_level_names]
+            access_levels_block = f"\n    access_levels       = {_hcl_list(al_refs, indent=4)}"
+
+        block_type = "spec" if dry_run else "status"
+        dry_run_line = '\n  use_explicit_dry_run_spec = true' if dry_run else ""
+
+        return textwrap.dedent(f"""\
+        resource "google_access_context_manager_service_perimeter" "{name}" {{
+          parent         = "accessPolicies/{policy_id}"
+          name           = "accessPolicies/{policy_id}/servicePerimeters/{name}"
+          title          = "{title}"
+          perimeter_type = "PERIMETER_TYPE_REGULAR"{dry_run_line}
+
+          {block_type} {{
+            restricted_services = {services_hcl}
+            resources           = {resources_hcl}{access_levels_block}
+          }}
+        }}
+        """)
+
+    @mcp.tool(annotations=GENERATE)
+    def generate_access_level_terraform(
+        name: str,
+        policy_id: str,
+        title: str | None = None,
+        ip_ranges: list[str] | None = None,
+        members: list[str] | None = None,
+        regions: list[str] | None = None,
+        require_all: bool = True,
+    ) -> str:
+        """Generate Terraform HCL for a VPC-SC access level.
+
+        Args:
+            name: The access level name (alphanumeric and underscores).
+            policy_id: The access policy ID (numeric).
+            title: Human-readable title. Defaults to name.
+            ip_ranges: List of CIDR ranges to allow (e.g. '203.0.113.0/24').
+            members: List of identity members (e.g. 'user:admin@example.com').
+            regions: List of region codes (e.g. 'GB', 'US').
+            require_all: If True, all conditions must be met (AND). If False, any (OR).
+        """
+        title = title or name
+        combining = "AND" if require_all else "OR"
+
+        conditions_parts = []
+        if ip_ranges:
+            conditions_parts.append(f"      ip_subnetworks = {_hcl_list(ip_ranges, indent=6)}")
+        if members:
+            conditions_parts.append(f"      members = {_hcl_list(members, indent=6)}")
+        if regions:
+            conditions_parts.append(f"      regions = {_hcl_list(regions, indent=6)}")
+
+        if not conditions_parts:
+            return "Error: at least one condition is required (ip_ranges, members, or regions). No default is generated to prevent accidental open access."
+
+        conditions_block = "\n".join(conditions_parts)
+
+        return textwrap.dedent(f"""\
+        resource "google_access_context_manager_access_level" "{name}" {{
+          parent = "accessPolicies/{policy_id}"
+          name   = "accessPolicies/{policy_id}/accessLevels/{name}"
+          title  = "{title}"
+
+          basic {{
+            combining_function = "{combining}"
+
+            conditions {{
+        {conditions_block}
+            }}
+          }}
+        }}
+        """)
+
+    @mcp.tool(annotations=GENERATE)
+    def generate_bridge_terraform(
+        name: str,
+        policy_id: str,
+        project_numbers_a: list[str],
+        project_numbers_b: list[str],
+        title: str | None = None,
+    ) -> str:
+        """Generate Terraform HCL for a VPC-SC bridge perimeter connecting two perimeters.
+
+        Args:
+            name: The bridge perimeter name.
+            policy_id: The access policy ID (numeric).
+            project_numbers_a: Project numbers from perimeter A.
+            project_numbers_b: Project numbers from perimeter B.
+            title: Human-readable title. Defaults to name.
+        """
+        title = title or name
+        all_projects = [f"projects/{p}" for p in project_numbers_a + project_numbers_b]
+        resources_hcl = _hcl_list(all_projects, indent=4)
+
+        return textwrap.dedent(f"""\
+        resource "google_access_context_manager_service_perimeter" "{name}" {{
+          parent         = "accessPolicies/{policy_id}"
+          name           = "accessPolicies/{policy_id}/servicePerimeters/{name}"
+          title          = "{title}"
+          perimeter_type = "PERIMETER_TYPE_BRIDGE"
+
+          status {{
+            resources = {resources_hcl}
+          }}
+        }}
+        """)
+
+    @mcp.tool(annotations=GENERATE)
+    def generate_ingress_policy_terraform(
+        service_name: str,
+        method_selectors: list[dict[str, str]],
+        identity_type: str | None = None,
+        identities: list[str] | None = None,
+        source_project_numbers: list[str] | None = None,
+        source_access_level: str | None = None,
+        target_resources: list[str] | None = None,
+        title: str = "Ingress Rule",
+    ) -> str:
+        """Generate Terraform HCL for a VPC-SC ingress policy block.
+
+        Args:
+            service_name: The GCP service (e.g. 'bigquery.googleapis.com').
+            method_selectors: List of {'method': '...'} or {'permission': '...'} dicts.
+            identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT', 'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
+            identities: Explicit identity list (e.g. 'serviceAccount:sa@project.iam.gserviceaccount.com').
+            source_project_numbers: Source project numbers (without 'projects/' prefix).
+            source_access_level: Full access level resource name.
+            target_resources: Target resources (default ['*']).
+            title: Title for the ingress policy.
+        """
+        target_resources = target_resources or ["*"]
+
+        # Build ingress_from
+        from_parts = []
+        if identity_type:
+            from_parts.append(f'      identity_type = "{identity_type}"')
+        elif identities:
+            from_parts.append(f"      identities = {_hcl_list(identities, indent=6)}")
+        else:
+            from_parts.append('      identity_type = "ANY_IDENTITY"')
+
+        sources = []
+        if source_project_numbers:
+            for pn in source_project_numbers:
+                sources.append(f'        resource = "projects/{pn}"')
+        if source_access_level:
+            sources.append(f'        access_level = "{source_access_level}"')
+
+        sources_block = ""
+        if sources:
+            source_entries = "\n      }\n      sources {\n".join(sources)
+            sources_block = f"\n      sources {{\n{source_entries}\n      }}"
+
+        from_block = "\n".join(from_parts)
+
+        # Build method selectors
+        method_lines = []
+        for ms in method_selectors:
+            if "method" in ms:
+                method_lines.append(f'        method_selectors {{\n          method = "{ms["method"]}"\n        }}')
+            elif "permission" in ms:
+                method_lines.append(f'        method_selectors {{\n          permission = "{ms["permission"]}"\n        }}')
+        methods_hcl = "\n".join(method_lines)
+
+        targets_hcl = _hcl_list(target_resources, indent=6)
+
+        return textwrap.dedent(f"""\
+        # {title}
+        ingress_policies {{
+          title = "{title}"
+          ingress_from {{
+        {from_block}{sources_block}
+          }}
+          ingress_to {{
+            resources = {targets_hcl}
+            operations {{
+              service_name = "{service_name}"
+        {methods_hcl}
+            }}
+          }}
+        }}
+        """)
+
+    @mcp.tool(annotations=GENERATE)
+    def generate_egress_policy_terraform(
+        service_name: str,
+        method_selectors: list[dict[str, str]],
+        identity_type: str | None = None,
+        identities: list[str] | None = None,
+        target_project_numbers: list[str] | None = None,
+        target_resources: list[str] | None = None,
+        title: str = "Egress Rule",
+    ) -> str:
+        """Generate Terraform HCL for a VPC-SC egress policy block.
+
+        Args:
+            service_name: The GCP service (e.g. 'storage.googleapis.com').
+            method_selectors: List of {'method': '...'} or {'permission': '...'} dicts.
+            identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT', 'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
+            identities: Explicit identity list.
+            target_project_numbers: Target project numbers (without 'projects/' prefix).
+            target_resources: Target resources (overrides target_project_numbers if set).
+            title: Title for the egress policy.
+        """
+        if target_resources:
+            targets = target_resources
+        elif target_project_numbers:
+            targets = [f"projects/{p}" for p in target_project_numbers]
+        else:
+            targets = ["*"]
+
+        # Build egress_from
+        from_parts = []
+        if identity_type:
+            from_parts.append(f'      identity_type = "{identity_type}"')
+        elif identities:
+            from_parts.append(f"      identities = {_hcl_list(identities, indent=6)}")
+        else:
+            from_parts.append('      identity_type = "ANY_IDENTITY"')
+        from_block = "\n".join(from_parts)
+
+        # Build method selectors
+        method_lines = []
+        for ms in method_selectors:
+            if "method" in ms:
+                method_lines.append(f'        method_selectors {{\n          method = "{ms["method"]}"\n        }}')
+            elif "permission" in ms:
+                method_lines.append(f'        method_selectors {{\n          permission = "{ms["permission"]}"\n        }}')
+        methods_hcl = "\n".join(method_lines)
+
+        targets_hcl = _hcl_list(targets, indent=6)
+
+        return textwrap.dedent(f"""\
+        # {title}
+        egress_policies {{
+          title = "{title}"
+          egress_from {{
+        {from_block}
+          }}
+          egress_to {{
+            resources = {targets_hcl}
+            operations {{
+              service_name = "{service_name}"
+        {methods_hcl}
+            }}
+          }}
+        }}
+        """)
+
+    @mcp.tool(annotations=GENERATE)
+    def generate_vpc_accessible_services_terraform(
+        allowed_services: list[str],
+    ) -> str:
+        """Generate Terraform HCL for the vpc_accessible_services block.
+
+        Args:
+            allowed_services: Services accessible from VPCs inside the perimeter. Use ['*'] for all.
+        """
+        if allowed_services == ["*"]:
+            return textwrap.dedent("""\
+            # VPC Accessible Services: all services allowed
+            # vpc_accessible_services block is omitted when allowing all services.
+            # To restrict, specify an explicit list of services.
+            """)
+
+        services_hcl = _hcl_list(allowed_services, indent=6)
+        return textwrap.dedent(f"""\
+        vpc_accessible_services {{
+          enable_restriction = true
+          allowed_services   = {services_hcl}
+        }}
+        """)
+
+    @mcp.tool(annotations=GENERATE)
+    def generate_full_perimeter_terraform(
+        name: str,
+        policy_id: str,
+        project_numbers: list[str],
+        restricted_services: list[str],
+        title: str | None = None,
+        dry_run: bool = True,
+        access_level_names: list[str] | None = None,
+        ingress_rules_json: str | None = None,
+        egress_rules_json: str | None = None,
+    ) -> str:
+        """Generate a complete Terraform perimeter with inline ingress/egress policies.
+
+        Args:
+            name: The perimeter name.
+            policy_id: The access policy ID (numeric).
+            project_numbers: Project numbers to include.
+            restricted_services: Services to restrict.
+            title: Human-readable title. Defaults to name.
+            dry_run: Use dry-run mode. Default True.
+            access_level_names: Access level names to allow.
+            ingress_rules_json: JSON array of ingress rules, each with: title, identity_type or identities, sources, service_name, method_selectors.
+            egress_rules_json: JSON array of egress rules, each with: title, identity_type or identities, targets, service_name, method_selectors.
+        """
+        title = title or name
+        resources_hcl = _hcl_list([f"projects/{p}" for p in project_numbers], indent=4)
+        services_hcl = _hcl_list(restricted_services, indent=4)
+
+        access_levels_block = ""
+        if access_level_names:
+            al_refs = [f"accessPolicies/{policy_id}/accessLevels/{al}" for al in access_level_names]
+            access_levels_block = f"\n    access_levels       = {_hcl_list(al_refs, indent=4)}"
+
+        block_type = "spec" if dry_run else "status"
+        dry_run_line = '\n  use_explicit_dry_run_spec = true' if dry_run else ""
+
+        # Parse and build ingress policies
+        ingress_blocks = ""
+        if ingress_rules_json:
+            try:
+                ingress_rules = json.loads(ingress_rules_json)
+                parts = []
+                for rule in ingress_rules:
+                    parts.append(_build_ingress_hcl(rule))
+                ingress_blocks = "\n" + "\n".join(parts)
+            except (json.JSONDecodeError, KeyError) as e:
+                ingress_blocks = f"\n    # Error parsing ingress rules: {e}"
+
+        # Parse and build egress policies
+        egress_blocks = ""
+        if egress_rules_json:
+            try:
+                egress_rules = json.loads(egress_rules_json)
+                parts = []
+                for rule in egress_rules:
+                    parts.append(_build_egress_hcl(rule))
+                egress_blocks = "\n" + "\n".join(parts)
+            except (json.JSONDecodeError, KeyError) as e:
+                egress_blocks = f"\n    # Error parsing egress rules: {e}"
+
+        return textwrap.dedent(f"""\
+        resource "google_access_context_manager_service_perimeter" "{name}" {{
+          parent         = "accessPolicies/{policy_id}"
+          name           = "accessPolicies/{policy_id}/servicePerimeters/{name}"
+          title          = "{title}"
+          perimeter_type = "PERIMETER_TYPE_REGULAR"{dry_run_line}
+
+          {block_type} {{
+            restricted_services = {services_hcl}
+            resources           = {resources_hcl}{access_levels_block}
+        {ingress_blocks}{egress_blocks}
+          }}
+        }}
+        """)
+
+
+    @mcp.tool(annotations=DIAGNOSTIC)
+    async def validate_terraform(hcl_code: str) -> str:
+        """Validate Terraform HCL code by running terraform init and terraform validate.
+
+        Writes the code to a temporary directory, adds a Google provider block,
+        runs terraform init + validate, and returns the result. The temp directory
+        is deleted after validation.
+
+        Args:
+            hcl_code: The Terraform HCL code to validate. Can be a full resource block or multiple blocks.
+        """
+        tf_path = shutil.which("terraform")
+        if not tf_path:
+            return (
+                "Error: terraform CLI not found on PATH.\n"
+                "Install Terraform: https://developer.hashicorp.com/terraform/install"
+            )
+
+        _tf_log(f"validate_terraform({len(hcl_code)} chars)")
+
+        tmpdir = tempfile.mkdtemp(prefix="vpcsc_mcp_validate_")
+        try:
+            # Write provider config
+            with open(os.path.join(tmpdir, "provider.tf"), "w") as f:
+                f.write(_PROVIDER_BLOCK)
+
+            # Write the user's HCL
+            with open(os.path.join(tmpdir, "main.tf"), "w") as f:
+                f.write(hcl_code)
+
+            lines = []
+
+            # terraform init
+            _tf_log("Running terraform init...")
+            rc, stdout, stderr = await _run_tf(["init", "-backend=false", "-no-color"], tmpdir)
+            if rc != 0:
+                init_err = stderr.strip() or stdout.strip()
+                lines.append("INIT FAILED:")
+                lines.append(init_err[:2000])
+                return "\n".join(lines)
+
+            lines.append("INIT: OK")
+
+            # terraform validate
+            _tf_log("Running terraform validate...")
+            rc, stdout, stderr = await _run_tf(["validate", "-no-color"], tmpdir)
+
+            if rc == 0:
+                lines.append("VALIDATE: OK")
+                # Parse the JSON output if available
+                try:
+                    rc_json, stdout_json, _ = await _run_tf(["validate", "-json", "-no-color"], tmpdir)
+                    result = json.loads(stdout_json)
+                    if result.get("valid"):
+                        lines.append(f"\nTerraform validated successfully.")
+                        lines.append(f"  Format version: {result.get('format_version', 'N/A')}")
+                except (json.JSONDecodeError, Exception):
+                    pass
+            else:
+                lines.append("VALIDATE: FAILED")
+                # Parse structured errors if possible
+                try:
+                    rc_json, stdout_json, _ = await _run_tf(["validate", "-json", "-no-color"], tmpdir)
+                    result = json.loads(stdout_json)
+                    for diag in result.get("diagnostics", []):
+                        severity = diag.get("severity", "error").upper()
+                        summary = diag.get("summary", "Unknown error")
+                        detail = diag.get("detail", "")
+                        snippet = diag.get("snippet", {})
+                        context = snippet.get("context", "")
+                        code = snippet.get("code", "")
+
+                        lines.append(f"\n  {severity}: {summary}")
+                        if detail:
+                            lines.append(f"  Detail: {detail[:500]}")
+                        if context:
+                            lines.append(f"  Context: {context}")
+                        if code:
+                            lines.append(f"  Code: {code[:200]}")
+                except (json.JSONDecodeError, Exception):
+                    # Fall back to raw stderr
+                    lines.append(stderr.strip()[:2000])
+
+            # terraform fmt -check (style check, non-blocking)
+            _tf_log("Running terraform fmt -check...")
+            rc_fmt, stdout_fmt, _ = await _run_tf(["fmt", "-check", "-no-color", "-diff"], tmpdir)
+            if rc_fmt == 0:
+                lines.append("\nFORMAT: OK (correctly formatted)")
+            else:
+                lines.append("\nFORMAT: Needs formatting (non-blocking)")
+                if stdout_fmt.strip():
+                    lines.append("  Suggested diff:")
+                    for diff_line in stdout_fmt.strip().splitlines()[:20]:
+                        lines.append(f"    {diff_line}")
+
+            return "\n".join(lines)
+
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            _tf_log("Cleaned up temp directory")
+
+
+def _build_ingress_hcl(rule: dict) -> str:
+    """Build an ingress_policies HCL block from a rule dict."""
+    title = rule.get("title", "Ingress Rule")
+    lines = [f'    ingress_policies {{', f'      title = "{title}"', "      ingress_from {"]
+
+    if "identity_type" in rule:
+        lines.append(f'        identity_type = "{rule["identity_type"]}"')
+    elif "identities" in rule:
+        lines.append(f"        identities = {_hcl_list(rule['identities'], indent=8)}")
+
+    for src in rule.get("sources", []):
+        lines.append("        sources {")
+        if "resource" in src:
+            lines.append(f'          resource = "{src["resource"]}"')
+        if "access_level" in src:
+            lines.append(f'          access_level = "{src["access_level"]}"')
+        lines.append("        }")
+
+    lines.append("      }")
+    lines.append("      ingress_to {")
+    targets = rule.get("target_resources", ["*"])
+    lines.append(f"        resources = {_hcl_list(targets, indent=8)}")
+
+    for op in rule.get("operations", []):
+        lines.append("        operations {")
+        lines.append(f'          service_name = "{op["service_name"]}"')
+        for ms in op.get("method_selectors", []):
+            lines.append("          method_selectors {")
+            if "method" in ms:
+                lines.append(f'            method = "{ms["method"]}"')
+            elif "permission" in ms:
+                lines.append(f'            permission = "{ms["permission"]}"')
+            lines.append("          }")
+        lines.append("        }")
+
+    lines.append("      }")
+    lines.append("    }")
+    return "\n".join(lines)
+
+
+def _build_egress_hcl(rule: dict) -> str:
+    """Build an egress_policies HCL block from a rule dict."""
+    title = rule.get("title", "Egress Rule")
+    lines = [f'    egress_policies {{', f'      title = "{title}"', "      egress_from {"]
+
+    if "identity_type" in rule:
+        lines.append(f'        identity_type = "{rule["identity_type"]}"')
+    elif "identities" in rule:
+        lines.append(f"        identities = {_hcl_list(rule['identities'], indent=8)}")
+
+    lines.append("      }")
+    lines.append("      egress_to {")
+    targets = rule.get("target_resources", ["*"])
+    lines.append(f"        resources = {_hcl_list(targets, indent=8)}")
+
+    for op in rule.get("operations", []):
+        lines.append("        operations {")
+        lines.append(f'          service_name = "{op["service_name"]}"')
+        for ms in op.get("method_selectors", []):
+            lines.append("          method_selectors {")
+            if "method" in ms:
+                lines.append(f'            method = "{ms["method"]}"')
+            elif "permission" in ms:
+                lines.append(f'            permission = "{ms["permission"]}"')
+            lines.append("          }")
+        lines.append("        }")
+
+    lines.append("      }")
+    lines.append("    }")
+    return "\n".join(lines)
