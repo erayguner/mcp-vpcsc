@@ -70,6 +70,10 @@ def sanitise_output(text: str) -> str:
 
     # Truncate
     if len(cleaned) > MAX_OUTPUT_LENGTH:
-        cleaned = cleaned[:MAX_OUTPUT_LENGTH] + f"\n\n[OUTPUT TRUNCATED — {len(text)} chars total, showing first {MAX_OUTPUT_LENGTH}]"
+        cleaned = (
+            cleaned[:MAX_OUTPUT_LENGTH]
+            + f"\n\n[OUTPUT TRUNCATED — {len(text)} chars total, "
+            f"showing first {MAX_OUTPUT_LENGTH}]"
+        )
 
     return cleaned

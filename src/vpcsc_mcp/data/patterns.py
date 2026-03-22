@@ -3,7 +3,10 @@
 COMMON_INGRESS_PATTERNS: dict[str, dict] = {
     "bigquery-cross-project-read": {
         "title": "Allow external project to read BigQuery datasets",
-        "description": "Enables a service account from an outside project to run read queries against datasets inside the perimeter.",
+        "description": (
+            "Enables a service account from an outside project to run read queries "
+            "against datasets inside the perimeter."
+        ),
         "template": {
             "ingressFrom": {
                 "identities": ["serviceAccount:{sa_email}"],
@@ -27,7 +30,10 @@ COMMON_INGRESS_PATTERNS: dict[str, dict] = {
     },
     "storage-read-from-access-level": {
         "title": "Allow corporate network to read Cloud Storage",
-        "description": "Enables users on the corporate network (via access level) to read GCS objects inside the perimeter.",
+        "description": (
+            "Enables users on the corporate network (via access level) "
+            "to read GCS objects inside the perimeter."
+        ),
         "template": {
             "ingressFrom": {
                 "identityType": "ANY_IDENTITY",
@@ -72,7 +78,10 @@ COMMON_INGRESS_PATTERNS: dict[str, dict] = {
     },
     "cloud-build-deploy": {
         "title": "Allow Cloud Build to deploy into perimeter",
-        "description": "Enables Cloud Build service agent from an external project to deploy resources inside the perimeter.",
+        "description": (
+            "Enables Cloud Build service agent from an external project "
+            "to deploy resources inside the perimeter."
+        ),
         "template": {
             "ingressFrom": {
                 "identities": [
@@ -92,7 +101,10 @@ COMMON_INGRESS_PATTERNS: dict[str, dict] = {
     },
     "devops-console-access": {
         "title": "Allow DevOps team console access via access level",
-        "description": "Enables DevOps team members on the corporate network to access resources in the perimeter via console/API.",
+        "description": (
+            "Enables DevOps team members on the corporate network "
+            "to access resources in the perimeter via console/API."
+        ),
         "template": {
             "ingressFrom": {
                 "identities": ["group:{devops_group_email}"],
@@ -113,7 +125,10 @@ COMMON_INGRESS_PATTERNS: dict[str, dict] = {
 COMMON_EGRESS_PATTERNS: dict[str, dict] = {
     "bigquery-cross-project-query": {
         "title": "Allow BigQuery jobs to query external datasets",
-        "description": "Enables service accounts inside the perimeter to run BigQuery jobs that read from external projects.",
+        "description": (
+            "Enables service accounts inside the perimeter to run "
+            "BigQuery jobs that read from external projects."
+        ),
         "template": {
             "egressFrom": {
                 "identities": ["serviceAccount:{sa_email}"],
@@ -135,7 +150,10 @@ COMMON_EGRESS_PATTERNS: dict[str, dict] = {
     },
     "storage-write-external": {
         "title": "Allow writing to external Cloud Storage bucket",
-        "description": "Enables a service account inside the perimeter to write objects to a GCS bucket in an external project.",
+        "description": (
+            "Enables a service account inside the perimeter to write objects "
+            "to a GCS bucket in an external project."
+        ),
         "template": {
             "egressFrom": {
                 "identities": ["serviceAccount:{sa_email}"],
@@ -157,7 +175,10 @@ COMMON_EGRESS_PATTERNS: dict[str, dict] = {
     },
     "cloud-functions-deploy": {
         "title": "Allow Cloud Functions deployment to external storage",
-        "description": "Enables Cloud Functions service agent to store function source in external GCS during deployment.",
+        "description": (
+            "Enables Cloud Functions service agent to store function source "
+            "in external GCS during deployment."
+        ),
         "template": {
             "egressFrom": {
                 "identities": [
@@ -202,7 +223,10 @@ COMMON_EGRESS_PATTERNS: dict[str, dict] = {
     },
     "logging-export": {
         "title": "Allow log sink to export to external project",
-        "description": "Enables the logging service agent to export logs to a BigQuery dataset or GCS bucket in an external project.",
+        "description": (
+            "Enables the logging service agent to export logs to a BigQuery dataset "
+            "or GCS bucket in an external project."
+        ),
         "template": {
             "egressFrom": {
                 "identities": [
@@ -233,7 +257,10 @@ COMMON_EGRESS_PATTERNS: dict[str, dict] = {
 
 TROUBLESHOOTING_GUIDE: dict[str, dict] = {
     "RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER": {
-        "meaning": "The API client and target resource are in different perimeters with no bridge or ingress/egress rules",
+        "meaning": (
+            "The API client and target resource are in different perimeters "
+            "with no bridge or ingress/egress rules"
+        ),
         "common_causes": [
             "Cross-project BigQuery query where projects are in different perimeters",
             "Cloud Function accessing GCS bucket in another perimeter",
