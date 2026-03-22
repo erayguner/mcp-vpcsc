@@ -147,7 +147,7 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
 def register_gcloud_tools(mcp) -> None:
     """Register all gcloud-based VPC-SC tools on the FastMCP server."""
 
-    from vpcsc_mcp.tools.safety import READONLY_GCP, WRITE_GCP, sanitise_output
+    from vpcsc_mcp.tools.safety import READONLY_GCP, WRITE_GCP
 
     @mcp.tool(annotations=READONLY_GCP)
     async def list_access_policies(organization_id: str) -> str:
@@ -361,7 +361,10 @@ def register_gcloud_tools(mcp) -> None:
                 lines.append(f"    New projects in dry-run: {len(new_resources)}")
             if new_services:
                 lines.append(f"    New restricted services in dry-run: {', '.join(new_services)}")
-            lines.append(f"    To enforce: gcloud access-context-manager perimeters dry-run enforce {name} --policy={policy_id}\n")
+            lines.append(
+                "    To enforce: gcloud access-context-manager perimeters "
+                f"dry-run enforce {name} --policy={policy_id}\n"
+            )
         return "\n".join(lines)
 
     @mcp.tool(annotations=WRITE_GCP)

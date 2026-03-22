@@ -1,8 +1,6 @@
 """Tests for the VPC-SC MCP server tools and data."""
 
-import json
 
-import pytest
 
 from vpcsc_mcp.data.patterns import (
     COMMON_EGRESS_PATTERNS,

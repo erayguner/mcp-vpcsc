@@ -8,7 +8,6 @@ import yaml
 
 from vpcsc_mcp.data.patterns import COMMON_EGRESS_PATTERNS, COMMON_INGRESS_PATTERNS
 from vpcsc_mcp.data.services import SERVICE_METHOD_SELECTORS
-from vpcsc_mcp.tools.gcloud_ops import _log
 
 
 def register_rule_tools(mcp) -> None:
@@ -31,7 +30,8 @@ def register_rule_tools(mcp) -> None:
         Args:
             service_name: The GCP service API (e.g. 'bigquery.googleapis.com').
             access_type: Method selector preset ('read', 'write', 'all', etc.). Default 'all'.
-            identity_type: Identity type ('ANY_IDENTITY', 'ANY_USER_ACCOUNT', 'ANY_SERVICE_ACCOUNT'). Mutually exclusive with identities.
+            identity_type: Identity type ('ANY_IDENTITY', 'ANY_USER_ACCOUNT',
+                'ANY_SERVICE_ACCOUNT'). Mutually exclusive with identities.
             identities: Explicit list of identities. Mutually exclusive with identity_type.
             source_project_numbers: Source project numbers (without 'projects/' prefix).
             source_access_level: Full access level resource name.
@@ -178,7 +178,9 @@ def register_rule_tools(mcp) -> None:
 
         Args:
             pattern_name: The pattern name (e.g. 'bigquery-cross-project-read').
-            substitutions: Optional JSON object with variable substitutions (e.g. '{"sa_email": "my-sa@project.iam.gserviceaccount.com", "source_project_number": "123456"}').
+            substitutions: Optional JSON object with variable substitutions
+                (e.g. '{"sa_email": "my-sa@proj.iam.gserviceaccount.com",
+                "source_project_number": "123456"}').
         """
         pattern = COMMON_INGRESS_PATTERNS.get(pattern_name)
         if not pattern:

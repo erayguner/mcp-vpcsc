@@ -5,7 +5,7 @@ from __future__ import annotations
 from mcp.server.fastmcp import Context
 from mcp.server.session import ServerSession
 
-from vpcsc_mcp.tools.gcloud_ops import run_gcloud, _log
+from vpcsc_mcp.tools.gcloud_ops import _log, run_gcloud
 
 # ─── Policy knowledge base ──────────────────────────────────────────────────
 # Maps constraint IDs to human descriptions, expected enforcement, and category.
@@ -386,7 +386,7 @@ def register_org_policy_tools(mcp) -> None:
 
         # ── Recommendations ──────────────────────────────────────────
         await progress("Generating recommendations...")
-        sections.append(f"\n--- RECOMMENDED ACTIONS ---")
+        sections.append("\n--- RECOMMENDED ACTIONS ---")
 
         if non_compliant or not_set:
             high_risk = [c for c in non_compliant + not_set if EXPECTED_POLICIES[c]["risk"] == "HIGH"]
@@ -407,7 +407,7 @@ def register_org_policy_tools(mcp) -> None:
                     p = EXPECTED_POLICIES[c]
                     sections.append(f"    {c}: {p['description']}")
 
-            sections.append(f"\n  To generate Terraform for these policies, use:")
+            sections.append("\n  To generate Terraform for these policies, use:")
             sections.append(f"    generate_org_policy_terraform(project_id=\"{project_id}\")")
         else:
             sections.append("  All checked policies are compliant. No action needed.")
@@ -424,7 +424,7 @@ def register_org_policy_tools(mcp) -> None:
         sections.append(f"  Not set:        {len(not_set)} {'<-- ACTION NEEDED' if not_set else ''}")
         high_total = len([c for c in non_compliant + not_set if EXPECTED_POLICIES[c]["risk"] == "HIGH"])
         if not non_compliant and not not_set:
-            sections.append(f"\n  STATUS: FULLY COMPLIANT")
+            sections.append("\n  STATUS: FULLY COMPLIANT")
         elif high_total:
             sections.append(f"\n  STATUS: NON-COMPLIANT — {high_total} HIGH risk issue(s)")
         else:
@@ -462,7 +462,7 @@ def register_org_policy_tools(mcp) -> None:
 
         if scope == "organization":
             lines.append('data "google_organization" "org" {')
-            lines.append(f'  domain = "REPLACE_WITH_YOUR_DOMAIN"  # e.g. "ons.gov.uk"')
+            lines.append('  domain = "REPLACE_WITH_YOUR_DOMAIN"  # e.g. "ons.gov.uk"')
             lines.append("}")
             lines.append("")
             parent_ref = 'data.google_organization.org.name'
@@ -485,22 +485,22 @@ def register_org_policy_tools(mcp) -> None:
                 lines.append(f'resource "google_org_policy_policy" "{safe_name}" {{')
                 lines.append(f"  name   = \"{{{parent_ref}}}/policies/{constraint_id}\"")
                 lines.append(f"  parent = {parent_ref}")
-                lines.append(f"  spec {{")
+                lines.append("  spec {")
 
                 if meta["expected"] == "enforced":
-                    lines.append(f"    rules {{")
-                    lines.append(f"      enforce = \"TRUE\"")
-                    lines.append(f"    }}")
+                    lines.append("    rules {")
+                    lines.append("      enforce = \"TRUE\"")
+                    lines.append("    }")
                 elif meta["expected"] == "restricted":
-                    lines.append(f"    rules {{")
+                    lines.append("    rules {")
                     lines.append(f"      # TODO: Configure allowed values for {constraint_id}")
-                    lines.append(f"      values {{")
-                    lines.append(f'        allowed_values = ["REPLACE_WITH_ALLOWED_VALUES"]')
-                    lines.append(f"      }}")
-                    lines.append(f"    }}")
+                    lines.append("      values {")
+                    lines.append('        allowed_values = ["REPLACE_WITH_ALLOWED_VALUES"]')
+                    lines.append("      }")
+                    lines.append("    }")
 
-                lines.append(f"  }}")
-                lines.append(f"}}")
+                lines.append("  }")
+                lines.append("}")
                 lines.append("")
 
         return "\n".join(lines)

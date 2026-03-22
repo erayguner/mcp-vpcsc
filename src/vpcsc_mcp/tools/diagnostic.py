@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import json
-import textwrap
-
 from mcp.server.fastmcp import Context
 from mcp.server.session import ServerSession
 
 from vpcsc_mcp.data.services import SUPPORTED_SERVICES, WORKLOAD_RECOMMENDATIONS
-from vpcsc_mcp.tools.gcloud_ops import run_gcloud, _log
+from vpcsc_mcp.tools.gcloud_ops import _log, run_gcloud
 
 
 def register_diagnostic_tools(mcp) -> None:
@@ -95,7 +92,10 @@ def register_diagnostic_tools(mcp) -> None:
                 for api in enabled_apis:
                     display = SUPPORTED_SERVICES.get(api, "")
                     sections.append(f"  [ENABLED] {api} ({display})")
-                sections.append(f"\n  {len(enabled_apis)} VPC-SC supported APIs enabled out of {len(SUPPORTED_SERVICES)} known.")
+                sections.append(
+                    f"\n  {len(enabled_apis)} VPC-SC supported APIs enabled "
+                    f"out of {len(SUPPORTED_SERVICES)} known."
+                )
             else:
                 sections.append("  No VPC-SC supported APIs found enabled.")
         else:
@@ -169,7 +169,10 @@ def register_diagnostic_tools(mcp) -> None:
                         restricted = status.get("restrictedServices", [])
                         has_dry_run = bool(p.get("spec") or p.get("useExplicitDryRunSpec"))
 
-                        proj_ref = f"projects/{proj.get('projectNumber', '')}" if isinstance(proj_info.get("result"), dict) else ""
+                        proj_ref = (
+                            f"projects/{proj.get('projectNumber', '')}"
+                            if isinstance(proj_info.get("result"), dict) else ""
+                        )
                         in_this = proj_ref in resources if proj_ref else False
                         if in_this:
                             project_in_perimeter = True
@@ -299,21 +302,30 @@ def register_diagnostic_tools(mcp) -> None:
             # Already protected
             already_protected = sorted(set(enabled_apis) & protected_services)
             if already_protected:
-                sections.append(f"\n  PROTECTED ({len(already_protected)} APIs — already in perimeter's restricted_services):")
+                sections.append(
+                    f"\n  PROTECTED ({len(already_protected)} APIs "
+                    "— already in perimeter's restricted_services):"
+                )
                 for api in already_protected:
                     sections.append(f"    [PROTECTED] {api} ({SUPPORTED_SERVICES.get(api, '')})")
 
             # Enabled but NOT protected
             unprotected = sorted(set(enabled_apis) - protected_services)
             if unprotected:
-                sections.append(f"\n  UNPROTECTED ({len(unprotected)} APIs — enabled but NOT in perimeter's restricted_services):")
+                sections.append(
+                    f"\n  UNPROTECTED ({len(unprotected)} APIs "
+                    "— enabled but NOT in perimeter's restricted_services):"
+                )
                 for api in unprotected:
                     sections.append(f"    [GAP] {api} ({SUPPORTED_SERVICES.get(api, '')})")
                 sections.append(
                     f"\n  ACTION: Add these {len(unprotected)} service(s) to the perimeter's restricted_services list."
                 )
-                sections.append(f"  Use dry-run mode first to identify any violations:")
-                sections.append(f"    gcloud access-context-manager perimeters dry-run update {perimeter_name_for_project} \\")
+                sections.append("  Use dry-run mode first to identify any violations:")
+                sections.append(
+                    "    gcloud access-context-manager perimeters dry-run update "
+                    f"{perimeter_name_for_project} \\"
+                )
                 sections.append(f"      --policy={policy_id} \\")
                 add_svc = ",".join(unprotected[:5])
                 sections.append(f"      --add-restricted-services={add_svc}")
@@ -323,10 +335,16 @@ def register_diagnostic_tools(mcp) -> None:
                 sections.append("\n  All enabled VPC-SC APIs are already protected. No gaps found.")
 
             # In perimeter but not enabled (over-restricted)
-            over_restricted = sorted(protected_services - set(enabled_apis) - (set(SUPPORTED_SERVICES.keys()) - protected_services))
+            sorted(
+                protected_services - set(enabled_apis)
+                - (set(SUPPORTED_SERVICES.keys()) - protected_services)
+            )
             restricted_but_unused = sorted(protected_services - set(enabled_apis))
             if restricted_but_unused:
-                sections.append(f"\n  INFO: {len(restricted_but_unused)} service(s) in restricted_services but not currently enabled in this project.")
+                sections.append(
+                    f"\n  INFO: {len(restricted_but_unused)} service(s) in "
+                    "restricted_services but not currently enabled in this project."
+                )
                 sections.append("  This is normal — they may be enabled in other projects in the same perimeter.")
 
         elif enabled_apis:
@@ -334,7 +352,7 @@ def register_diagnostic_tools(mcp) -> None:
             sections.append(f"\n  UNPROTECTED ({len(enabled_apis)} APIs — no perimeter protection):")
             for api in enabled_apis:
                 sections.append(f"    [GAP] {api} ({SUPPORTED_SERVICES.get(api, '')})")
-            sections.append(f"\n  ACTION: Create a new perimeter with these services.")
+            sections.append("\n  ACTION: Create a new perimeter with these services.")
             sections.append(f"  Use: generate_implementation_guide(project_id=\"{project_id}\") for full Terraform.")
         else:
             sections.append("  No VPC-SC supported APIs enabled. Nothing to protect.")
@@ -345,7 +363,8 @@ def register_diagnostic_tools(mcp) -> None:
         sections.append("=" * 60)
         sections.append(f"  Project:         {project_id}")
         sections.append(f"  Organization:    {'found' if org_id else 'NOT FOUND — required for VPC-SC'}")
-        sections.append(f"  Access policy:   {'found (ID: ' + policy_id + ')' if policy_id else 'NOT FOUND — create one first'}")
+        policy_status = f"found (ID: {policy_id})" if policy_id else "NOT FOUND — create one first"
+        sections.append(f"  Access policy:   {policy_status}")
         sections.append(f"  In perimeter:    {perimeter_name_for_project or 'NO — not protected'}")
         sections.append(f"  APIs enabled:    {len(enabled_apis)} VPC-SC supported")
 
@@ -353,7 +372,7 @@ def register_diagnostic_tools(mcp) -> None:
             sections.append(f"  APIs protected:  {len(already_protected)}")
             sections.append(f"  APIs unprotected:{len(unprotected)} {'<-- ACTION NEEDED' if unprotected else ''}")
         else:
-            sections.append(f"  APIs protected:  0")
+            sections.append("  APIs protected:  0")
             sections.append(f"  APIs unprotected:{len(enabled_apis)} <-- ACTION NEEDED")
 
         if perimeter_name_for_project and not unprotected:
@@ -378,7 +397,9 @@ def register_diagnostic_tools(mcp) -> None:
 
         Args:
             project_id: GCP project ID. Leave empty to use the active gcloud project.
-            workload_type: Workload type for service recommendations: 'ai-ml', 'data-analytics', 'web-application', 'data-warehouse', 'healthcare'. Default 'data-analytics'.
+            workload_type: Workload type for service recommendations: 'ai-ml',
+                'data-analytics', 'web-application', 'data-warehouse',
+                'healthcare'. Default 'data-analytics'.
         """
         guide_steps = 5
         guide_step = 0
@@ -476,9 +497,11 @@ def register_diagnostic_tools(mcp) -> None:
 
         # ── Build the guide ──────────────────────────────────────────
         services_hcl = "\n".join(f'    "{s}",' for s in restricted_services)
-        sa_identities = "\n".join(
+        "\n".join(
             f'    "serviceAccount:{sa}",' for sa in service_accounts[:10]
         )
+
+        acm_policy_ref = "${{data.google_access_context_manager_access_policy.org_policy.name}}"
 
         guide = f"""\
 VPC-SC IMPLEMENTATION GUIDE
@@ -510,8 +533,8 @@ data "google_access_context_manager_access_policy" "org_policy" {{
 }}
 
 resource "google_access_context_manager_access_level" "corporate_network" {{
-  parent = "accessPolicies/${{data.google_access_context_manager_access_policy.org_policy.name}}"
-  name   = "accessPolicies/${{data.google_access_context_manager_access_policy.org_policy.name}}/accessLevels/corporate_network"
+  parent = "accessPolicies/{acm_policy_ref}"
+  name   = "accessPolicies/{acm_policy_ref}/accessLevels/corporate_network"
   title  = "Corporate Network"
 
   basic {{

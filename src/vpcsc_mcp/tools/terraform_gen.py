@@ -76,7 +76,7 @@ async def _run_tf(args: list[str], cwd: str) -> tuple[int, str, str]:
 def register_terraform_tools(mcp) -> None:
     """Register all Terraform generation tools on the FastMCP server."""
 
-    from vpcsc_mcp.tools.safety import GENERATE, DIAGNOSTIC
+    from vpcsc_mcp.tools.safety import DIAGNOSTIC, GENERATE
 
     @mcp.tool(annotations=GENERATE)
     def generate_perimeter_terraform(
@@ -101,7 +101,10 @@ def register_terraform_tools(mcp) -> None:
         """
         # Validate inputs
         if not _TF_IDENTIFIER.match(name):
-            return f"Error: name '{name}' is not a valid Terraform identifier (use alphanumeric + underscores, start with letter)."
+            return (
+                f"Error: name '{name}' is not a valid Terraform identifier "
+                "(use alphanumeric + underscores, start with letter)."
+            )
         if not _NUMERIC.match(policy_id):
             return f"Error: policy_id '{policy_id}' must be numeric."
         for pn in project_numbers:
@@ -113,7 +116,10 @@ def register_terraform_tools(mcp) -> None:
 
         title = _sanitise_hcl_string(title or name)
         mode = "dry-run" if dry_run else "enforced"
-        _tf_log(f"generate_perimeter_terraform({name}, {len(project_numbers)} projects, {len(restricted_services)} services, {mode})")
+        _tf_log(
+            f"generate_perimeter_terraform({name}, {len(project_numbers)} projects, "
+            f"{len(restricted_services)} services, {mode})"
+        )
         resources_hcl = _hcl_list([f"projects/{p}" for p in project_numbers], indent=4)
         services_hcl = _hcl_list(restricted_services, indent=4)
 
@@ -172,7 +178,10 @@ def register_terraform_tools(mcp) -> None:
             conditions_parts.append(f"      regions = {_hcl_list(regions, indent=6)}")
 
         if not conditions_parts:
-            return "Error: at least one condition is required (ip_ranges, members, or regions). No default is generated to prevent accidental open access."
+            return (
+                "Error: at least one condition is required (ip_ranges, members, "
+                "or regions). No default is generated to prevent accidental open access."
+            )
 
         conditions_block = "\n".join(conditions_parts)
 
@@ -242,7 +251,8 @@ def register_terraform_tools(mcp) -> None:
         Args:
             service_name: The GCP service (e.g. 'bigquery.googleapis.com').
             method_selectors: List of {'method': '...'} or {'permission': '...'} dicts.
-            identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT', 'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
+            identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT',
+                'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
             identities: Explicit identity list (e.g. 'serviceAccount:sa@project.iam.gserviceaccount.com').
             source_project_numbers: Source project numbers (without 'projects/' prefix).
             source_access_level: Full access level resource name.
@@ -278,9 +288,17 @@ def register_terraform_tools(mcp) -> None:
         method_lines = []
         for ms in method_selectors:
             if "method" in ms:
-                method_lines.append(f'        method_selectors {{\n          method = "{ms["method"]}"\n        }}')
+                method_lines.append(
+                    f'        method_selectors {{\n'
+                    f'          method = "{ms["method"]}"\n'
+                    f'        }}'
+                )
             elif "permission" in ms:
-                method_lines.append(f'        method_selectors {{\n          permission = "{ms["permission"]}"\n        }}')
+                method_lines.append(
+                    f'        method_selectors {{\n'
+                    f'          permission = "{ms["permission"]}"\n'
+                    f'        }}'
+                )
         methods_hcl = "\n".join(method_lines)
 
         targets_hcl = _hcl_list(target_resources, indent=6)
@@ -317,7 +335,8 @@ def register_terraform_tools(mcp) -> None:
         Args:
             service_name: The GCP service (e.g. 'storage.googleapis.com').
             method_selectors: List of {'method': '...'} or {'permission': '...'} dicts.
-            identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT', 'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
+            identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT',
+                'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
             identities: Explicit identity list.
             target_project_numbers: Target project numbers (without 'projects/' prefix).
             target_resources: Target resources (overrides target_project_numbers if set).
@@ -344,9 +363,17 @@ def register_terraform_tools(mcp) -> None:
         method_lines = []
         for ms in method_selectors:
             if "method" in ms:
-                method_lines.append(f'        method_selectors {{\n          method = "{ms["method"]}"\n        }}')
+                method_lines.append(
+                    f'        method_selectors {{\n'
+                    f'          method = "{ms["method"]}"\n'
+                    f'        }}'
+                )
             elif "permission" in ms:
-                method_lines.append(f'        method_selectors {{\n          permission = "{ms["permission"]}"\n        }}')
+                method_lines.append(
+                    f'        method_selectors {{\n'
+                    f'          permission = "{ms["permission"]}"\n'
+                    f'        }}'
+                )
         methods_hcl = "\n".join(method_lines)
 
         targets_hcl = _hcl_list(targets, indent=6)
@@ -414,8 +441,12 @@ def register_terraform_tools(mcp) -> None:
             title: Human-readable title. Defaults to name.
             dry_run: Use dry-run mode. Default True.
             access_level_names: Access level names to allow.
-            ingress_rules_json: JSON array of ingress rules, each with: title, identity_type or identities, sources, service_name, method_selectors.
-            egress_rules_json: JSON array of egress rules, each with: title, identity_type or identities, targets, service_name, method_selectors.
+            ingress_rules_json: JSON array of ingress rules, each with: title,
+                identity_type or identities, sources, service_name,
+                method_selectors.
+            egress_rules_json: JSON array of egress rules, each with: title,
+                identity_type or identities, targets, service_name,
+                method_selectors.
         """
         title = title or name
         resources_hcl = _hcl_list([f"projects/{p}" for p in project_numbers], indent=4)
@@ -523,7 +554,7 @@ def register_terraform_tools(mcp) -> None:
                     rc_json, stdout_json, _ = await _run_tf(["validate", "-json", "-no-color"], tmpdir)
                     result = json.loads(stdout_json)
                     if result.get("valid"):
-                        lines.append(f"\nTerraform validated successfully.")
+                        lines.append("\nTerraform validated successfully.")
                         lines.append(f"  Format version: {result.get('format_version', 'N/A')}")
                 except (json.JSONDecodeError, Exception):
                     pass
@@ -574,7 +605,7 @@ def register_terraform_tools(mcp) -> None:
 def _build_ingress_hcl(rule: dict) -> str:
     """Build an ingress_policies HCL block from a rule dict."""
     title = rule.get("title", "Ingress Rule")
-    lines = [f'    ingress_policies {{', f'      title = "{title}"', "      ingress_from {"]
+    lines = ['    ingress_policies {', f'      title = "{title}"', "      ingress_from {"]
 
     if "identity_type" in rule:
         lines.append(f'        identity_type = "{rule["identity_type"]}"')
@@ -614,7 +645,7 @@ def _build_ingress_hcl(rule: dict) -> str:
 def _build_egress_hcl(rule: dict) -> str:
     """Build an egress_policies HCL block from a rule dict."""
     title = rule.get("title", "Egress Rule")
-    lines = [f'    egress_policies {{', f'      title = "{title}"', "      egress_from {"]
+    lines = ['    egress_policies {', f'      title = "{title}"', "      egress_from {"]
 
     if "identity_type" in rule:
         lines.append(f'        identity_type = "{rule["identity_type"]}"')

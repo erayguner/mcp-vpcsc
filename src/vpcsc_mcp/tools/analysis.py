@@ -23,7 +23,9 @@ def register_analysis_tools(mcp) -> None:
         """Get troubleshooting guidance for a VPC-SC violation reason code.
 
         Args:
-            violation_reason: The violation reason from audit logs (e.g. 'RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER', 'NO_MATCHING_ACCESS_LEVEL').
+            violation_reason: The violation reason from audit logs
+                (e.g. 'RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER',
+                'NO_MATCHING_ACCESS_LEVEL').
         """
         reason = violation_reason.upper().strip()
         _log(f"TOOL: troubleshoot_violation({reason})")
@@ -54,7 +56,8 @@ def register_analysis_tools(mcp) -> None:
         """Recommend restricted services for a VPC-SC perimeter based on workload type.
 
         Args:
-            workload_type: The workload type. Options: 'ai-ml', 'data-analytics', 'web-application', 'data-warehouse', 'healthcare'.
+            workload_type: The workload type. Options: 'ai-ml', 'data-analytics',
+                'web-application', 'data-warehouse', 'healthcare'.
         """
         key = workload_type.lower().strip().replace(" ", "-")
         _log(f"TOOL: recommend_restricted_services({key})")
@@ -158,7 +161,8 @@ def register_analysis_tools(mcp) -> None:
 
         Args:
             service_name: The GCP service API name (e.g. 'bigquery.googleapis.com').
-            access_type: The access pattern. Options depend on service, common ones: 'read', 'write', 'all', 'admin'. Default 'all'.
+            access_type: The access pattern. Options depend on service, common ones:
+                'read', 'write', 'all', 'admin'. Default 'all'.
         """
         svc = service_name.strip()
         if not svc.endswith(".googleapis.com"):
@@ -279,7 +283,10 @@ def register_analysis_tools(mcp) -> None:
         # Check BigQuery cross-project
         if has_cross_project_queries:
             if "bigquery.googleapis.com" not in services:
-                warnings.append("Cross-project BigQuery queries planned but bigquery.googleapis.com not in restricted services.")
+                warnings.append(
+                    "Cross-project BigQuery queries planned but "
+                    "bigquery.googleapis.com not in restricted services."
+                )
             recommendations.append(
                 "For cross-project BigQuery: you'll need both ingress rules (on data project perimeter) "
                 "and egress rules (on query project perimeter). This is the #1 source of VPC-SC violations."
@@ -342,7 +349,7 @@ def register_analysis_tools(mcp) -> None:
         Args:
             project_id: GCP project ID. Leave empty for active gcloud project.
         """
-        from vpcsc_mcp.tools.gcloud_ops import run_gcloud, _log
+        from vpcsc_mcp.tools.gcloud_ops import _log, run_gcloud
         from vpcsc_mcp.tools.org_policy import EXPECTED_POLICIES
 
         _log("TOOL: check_data_freshness()")
@@ -351,7 +358,7 @@ def register_analysis_tools(mcp) -> None:
             "DATA FRESHNESS CHECK",
             "=" * 50,
             "",
-            f"Server version: 0.1.0",
+            "Server version: 0.1.0",
             f"Built-in VPC-SC services: {len(SUPPORTED_SERVICES)}",
             f"Built-in org policies: {len(EXPECTED_POLICIES)}",
             f"Built-in workload profiles: {len(WORKLOAD_RECOMMENDATIONS)}",
