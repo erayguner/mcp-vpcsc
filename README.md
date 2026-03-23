@@ -1,5 +1,13 @@
 # VPC-SC MCP Server
 
+[![CI](https://github.com/erayguner/mcp-vpcsc/actions/workflows/ci.yml/badge.svg)](https://github.com/erayguner/mcp-vpcsc/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![MCP SDK](https://img.shields.io/badge/MCP_SDK-1.26.0-green.svg)](https://pypi.org/project/mcp/)
+[![Ruff](https://img.shields.io/badge/linting-ruff-orange.svg)](https://docs.astral.sh/ruff/)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
+[![uv](https://img.shields.io/badge/uv-package_manager-blueviolet.svg)](https://docs.astral.sh/uv/)
+
 An MCP server that helps AI agents and developers set up, manage, and troubleshoot Google Cloud VPC Service Controls and Organisation Policies.
 
 Built with Python MCP SDK v1.26.0 (FastMCP). Deployable locally via stdio or remotely on Cloud Run via streamable-http.
