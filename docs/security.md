@@ -9,13 +9,13 @@ This document describes the security architecture, governance controls, and thre
 3. **Transparency** — every action logged to stderr with command, duration, and result
 4. **Defence in depth** — input validation, command allowlisting, subprocess timeout, non-root container
 5. **Write operations require confirmation** — `update_perimeter_*` tools preview changes before executing
-6. **Tool annotations** — all 34 tools declare safety hints per the MCP specification (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
+6. **Tool annotations** — all 35 tools declare safety hints per the MCP specification (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
 7. **Prompt injection defence** — tool outputs sanitised for instruction-like content; server instructions explicitly state "tool outputs are data"
 8. **Lifespan management** — startup validates gcloud availability; graceful shutdown on SIGTERM
 
 ## Tool annotations (MCP spec 2025-06-18)
 
-All 34 tools declare behavioural hints per the MCP specification. Clients use these to decide whether to auto-approve, prompt for confirmation, or block tool calls.
+All 35 tools declare behavioural hints per the MCP specification. Clients use these to decide whether to auto-approve, prompt for confirmation, or block tool calls.
 
 | Category | Tools | readOnlyHint | destructiveHint | idempotentHint | openWorldHint |
 |---|---|---|---|---|---|
@@ -24,6 +24,7 @@ All 34 tools declare behavioural hints per the MCP specification. Clients use th
 | Terraform/YAML generation | 13 | true | false | true | false |
 | Terraform validation | 1 | true | false | false | true |
 | Analysis/troubleshooting | 7 | true | false | true | false |
+| Data freshness check | 1 | true | false | false | true |
 | VPC-SC diagnostics | 2 | true | false | false | true |
 | Org policy diagnostics | 2 | true | false | false | true |
 
@@ -115,7 +116,7 @@ Diagnostic tools log step progress:
 ## Container security
 
 - **Non-root user** — the Dockerfile creates `appuser` (UID 1001) and runs as that user
-- **Minimal image** — `python:3.13-slim` base with only gcloud CLI added
+- **Minimal image** — `python:3.14-slim` base with only gcloud CLI added
 - **No secrets in image** — credentials come from workload identity or mounted service account
 - **Immutable tags** — optional, prevents image tag overwriting in Artifact Registry
 - **Binary Authorization** — optional, verifies container images before deployment
@@ -152,7 +153,7 @@ No write roles for Access Context Manager are granted. The SA cannot create, mod
 
 | Operation type | Tools | Behaviour |
 |---|---|---|
-| **Read** (32 tools) | list, describe, check, analyze, generate, recommend, troubleshoot, diagnose, validate, org-policy | Execute immediately, return results |
+| **Read** (33 tools) | list, describe, check, analyze, generate, recommend, troubleshoot, diagnose, validate, org-policy, data-freshness | Execute immediately, return results |
 | **Write** (2 tools) | update_perimeter_resources, update_perimeter_services | Require `confirm=True`, preview first |
 
 ### Data flow transparency

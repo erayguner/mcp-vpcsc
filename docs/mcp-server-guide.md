@@ -97,7 +97,7 @@ Create or edit `~/.gemini/settings.json`:
 }
 ```
 
-Start `gemini`. The 34 tools, 5 resources, and 3 prompts are available automatically.
+Start `gemini`. The 35 tools, 5 resources, and 3 prompts are available automatically.
 
 ---
 
@@ -161,9 +161,11 @@ These tools produce HCL strings. They do **not** write files or call Terraform. 
 | `get_method_selectors` | Get pre-defined method/permission selectors for a service and access type |
 | `validate_identity_format` | Check that identity strings have the required prefix |
 | `analyze_perimeter_design` | Review a planned perimeter and flag issues |
+| `check_data_freshness` | Compare built-in data against live project APIs, report server version and data counts |
 
 **Behaviour notes:**
 
+- `check_data_freshness` compares the server's built-in VPC-SC services list against APIs enabled in your project, flags potentially missing services, and reports server version, data counts, and update instructions.
 - `troubleshoot_violation` recognises four violation codes: `RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER`, `NO_MATCHING_ACCESS_LEVEL`, `SERVICE_NOT_ALLOWED_FROM_VPC`, and `ACCESS_DENIED_GENERIC`.
 - `recommend_restricted_services` supports five workload types: `ai-ml`, `data-analytics`, `web-application`, `data-warehouse`, `healthcare`.
 - `get_method_selectors` returns both the human-readable list and a JSON array you can pass directly into the Terraform or YAML generators.

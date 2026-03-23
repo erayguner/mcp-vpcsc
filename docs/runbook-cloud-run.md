@@ -73,7 +73,7 @@ gcloud run services proxy vpcsc-mcp --region=europe-west2 --port=3000 &
 curl http://localhost:3000/health
 ```
 
-Expected: `{"status":"ok","server":"vpcsc-mcp","version":"0.1.0","tools":31}`
+Expected: `{"status":"ok","server":"vpcsc-mcp","version":"0.1.0","tools":35}`
 
 ## Step 5: Connect via proxy
 
@@ -138,7 +138,7 @@ adk deploy cloud_run \
 | Transport | Streamable HTTP (stateless, scale-to-zero) |
 | Health probes | `/health` (startup + liveness) |
 | Network binding | `0.0.0.0` (detected via `K_SERVICE` env var) |
-| Tool annotations | 34/34 tools annotated (32 readOnly, 2 destructive) |
+| Tool annotations | 35/35 tools annotated (33 readOnly, 2 destructive) |
 | Output sanitisation | Strips prompt-injection patterns |
 | Command allowlist | 9 subcommands, 11 flags |
 | Subprocess timeout | 120s |
