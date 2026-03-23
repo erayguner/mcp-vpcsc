@@ -214,7 +214,9 @@ def register_analysis_tools(mcp) -> None:
                 )
                 # Suggest correction
                 if "@" in identity and "." in identity:
-                    if "gserviceaccount.com" in identity:
+                    local_part, _, domain_part = identity.rpartition("@")
+                    email_domain = domain_part.lower()
+                    if email_domain == "gserviceaccount.com" or email_domain.endswith(".gserviceaccount.com"):
                         issues.append(f"    Suggested: serviceAccount:{identity}")
                     elif identity.count("@") == 1:
                         issues.append(f"    Suggested: user:{identity}")
