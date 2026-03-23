@@ -62,7 +62,7 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[None]:
             "will return errors. Install gcloud: https://cloud.google.com/sdk/docs/install"
         )
 
-    logger.info("VPC-SC MCP server starting — 34 tools, 5 resources, 3 prompts")
+    logger.info("VPC-SC MCP server starting — 35 tools, 5 resources, 3 prompts")
     yield
     logger.info("VPC-SC MCP server shutting down")
 
@@ -262,7 +262,7 @@ try:
             "status": "ok",
             "server": "vpcsc-mcp",
             "version": "0.1.0",
-            "tools": 34,
+            "tools": 35,
         })
 except ImportError:
     pass  # starlette not available in minimal installs

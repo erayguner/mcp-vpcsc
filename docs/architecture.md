@@ -84,7 +84,7 @@ Each module registers its tools via a `register_*_tools(mcp)` function. This kee
 |---|---|---|---|
 | `gcloud_ops.py` (464 lines) | 9 | gcloud CLI | Query and update live GCP infrastructure |
 | `terraform_gen.py` (643 lines) | 8 | terraform CLI (validate only) | Generate and validate Terraform HCL |
-| `analysis.py` (329 lines) | 7 | None | Troubleshoot violations, recommend services, validate inputs |
+| `analysis.py` (329 lines) | 8 | gcloud CLI (check_data_freshness) | Troubleshoot violations, recommend services, validate inputs, check data freshness |
 | `rule_gen.py` (251 lines) | 6 | None | Generate ingress/egress YAML, provide patterns |
 | `diagnostic.py` (813 lines) | 2 | gcloud CLI | VPC-SC project scan with gap analysis, implementation guide |
 | `org_policy.py` (~350 lines) | 2 | gcloud CLI | Org policy compliance scan, Terraform generator |
@@ -119,7 +119,7 @@ Tool argument
   │
   ▼
 _validate_args()
-  ├── Subcommand in allowlist? (8 permitted)
+  ├── Subcommand in allowlist? (9 permitted)
   ├── Flag in allowlist? (11 permitted)
   └── Characters safe? (regex check)
   │
@@ -306,7 +306,7 @@ Layer 2: MCP Protocol
   └── Tool annotations (readOnlyHint, destructiveHint) drive client confirmation UX
 
 Layer 3: Input validation
-  ├── Subcommand allowlist (8 commands)
+  ├── Subcommand allowlist (9 commands)
   ├── Flag allowlist (11 flags)
   ├── Character regex (rejects shell metacharacters)
   ├── Terraform input validation (names, policy IDs, service names)
@@ -364,7 +364,7 @@ vpcsc-mcp/
 │   │   ├── __init__.py          1 line
 │   │   ├── gcloud_ops.py     464 lines   run_gcloud(), allowlist, 9 gcloud tools
 │   │   ├── terraform_gen.py  643 lines   HCL generators, input validation, validate_terraform
-│   │   ├── analysis.py       329 lines   Troubleshoot, recommend, validate, analyse
+│   │   ├── analysis.py       329 lines   Troubleshoot, recommend, validate, analyse, check data freshness
 │   │   ├── rule_gen.py       251 lines   YAML generators, pattern library
 │   │   ├── diagnostic.py     813 lines   diagnose_project, generate_implementation_guide
 │   │   └── safety.py          75 lines   Annotation presets, sanitise_output
@@ -383,18 +383,19 @@ vpcsc-mcp/
 │       ├── outputs.tf                     Module outputs
 │       └── versions.tf                    Provider constraints
 ├── examples/
-│   ├── adk-agent/                         Single ADK agent (34 tools)
+│   ├── adk-agent/                         Single ADK agent (35 tools)
 │   └── adk-multi-agent/                   4 specialists + coordinator
 ├── tests/
 │   └── test_server.py                     18 tests
 ├── docs/
-│   ├── README.md                          Project overview
+│   ├── getting-started.md                 Quick start guide (local, Cloud Shell, Cloud Run)
 │   ├── architecture.md                    This document
 │   ├── mcp-server-guide.md               Full tool reference
+│   ├── security.md                        Security and governance
 │   ├── runbook-local.md                   Local setup
-│   ├── runbook-cloud-run.md              Cloud Run deployment
-│   └── security.md                        Security and governance
-├── Dockerfile                             Python 3.13 + gcloud, non-root
+│   ├── runbook-cloudshell.md              Cloud Shell setup
+│   └── runbook-cloud-run.md              Cloud Run deployment
+├── Dockerfile                             Python 3.14 + gcloud, non-root
 ├── cloudbuild.yaml                        Build, push, deploy pipeline
 ├── pyproject.toml                         Package config (mcp, pydantic, pyyaml)
 └── .gitignore                             Python, Terraform, secrets exclusions

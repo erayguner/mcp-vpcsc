@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial release of VPC-SC MCP Server
-- 34 tools with MCP ToolAnnotations (32 read-only, 2 destructive)
+- 35 tools with MCP ToolAnnotations (33 read-only, 2 destructive)
 - 5 resources (supported services, workload guides, common patterns)
 - 3 prompts (perimeter design, troubleshoot denial, migration planning)
 - gcloud operations: list perimeters, query audit logs, check dry-run status, update resources/services
@@ -25,4 +25,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Output sanitisation against prompt injection
 - Docker support with non-root container (UID 1001)
 - Cloud Run deployment via streamable-http transport
-- CI pipeline with Ruff linting and pytest across Python 3.10/3.12/3.13
+- CI pipeline with Ruff linting and pytest across Python 3.10/3.12/3.14

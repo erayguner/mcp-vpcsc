@@ -164,7 +164,7 @@ Add to `~/.gemini/settings.json`:
 
 ## What the server does
 
-Once connected, you have 34 tools that:
+Once connected, you have 35 tools that:
 
 | Action | Example command |
 |---|---|

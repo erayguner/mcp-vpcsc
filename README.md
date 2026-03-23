@@ -18,14 +18,14 @@ Built with Python MCP SDK v1.26.0 (FastMCP). Deployable locally via stdio or rem
 |---|---|---|
 | **gcloud operations** | 9 | List perimeters, query audit logs, check dry-run status, update resources/services |
 | **Terraform generation** | 8 | Generate HCL for perimeters, access levels, bridges, ingress/egress rules, validate output |
-| **Analysis** | 7 | Troubleshoot violations, recommend services by workload, validate identities |
+| **Analysis** | 8 | Troubleshoot violations, recommend services by workload, validate identities, check data freshness |
 | **Rule generation** | 6 | Produce YAML for gcloud, apply pre-built patterns for BigQuery/Storage/Vertex AI |
 | **VPC-SC diagnostics** | 2 | Project readiness scan with protection gap analysis, implementation guide with Terraform |
 | **Org policy diagnostics** | 2 | Org policy compliance scan (COMPLIANT/NON-COMPLIANT/NOT SET), Terraform generator |
 | **Resources** | 5 | Supported services list, workload guides, common patterns |
 | **Prompts** | 3 | Perimeter design, troubleshoot denial, migration planning |
 
-**34 tools, 5 resources, 3 prompts.** All 34 tools carry MCP `ToolAnnotations` (32 read-only, 2 destructive).
+**35 tools, 5 resources, 3 prompts.** All 35 tools carry MCP `ToolAnnotations` (33 read-only, 2 destructive).
 
 ## Security and governance
 
@@ -51,7 +51,7 @@ src/vpcsc_mcp/
   tools/
     gcloud_ops.py           gcloud CLI tools with allowlist, validation, timeout
     terraform_gen.py        Terraform HCL generators, input validation, terraform validate
-    analysis.py             Troubleshooting, recommendations, validation
+    analysis.py             Troubleshooting, recommendations, validation, data freshness
     rule_gen.py             Ingress/egress YAML and pattern library
     diagnostic.py           VPC-SC project diagnostics + implementation guide
     org_policy.py           Org policy compliance scan + Terraform generator
@@ -64,7 +64,7 @@ terraform/                  Cloud Run deployment (Terraform >= 1.14, Google prov
   modules/mcp-server/       Reusable module: Cloud Run + SA + Artifact Registry + IAM + monitoring
 
 examples/
-  adk-agent/                Google ADK single agent (all 34 tools)
+  adk-agent/                Google ADK single agent (all 35 tools)
   adk-multi-agent/          Google ADK multi-agent (4 specialists + coordinator)
 
 scripts/
@@ -72,8 +72,8 @@ scripts/
   run-diagnostic.py         Direct diagnostic CLI (no LLM needed)
 
 tests/                      18 tests
-docs/                       8 documents (getting-started, 3 runbooks, guide, security, architecture, README)
-Dockerfile                  Python 3.13 + gcloud, non-root
+docs/                       7 documents (getting-started, 3 runbooks, guide, security, architecture)
+Dockerfile                  Python 3.14 + gcloud, non-root
 cloudbuild.yaml             CI/CD: build, push, deploy
 ```
 
@@ -109,6 +109,6 @@ cloudbuild.yaml             CI/CD: build, push, deploy
 
 | Document | Content |
 |---|---|
-| [MCP Server Guide](docs/mcp-server-guide.md) | All 34 tools, validation rules, Terraform module patterns, end-to-end examples |
+| [MCP Server Guide](docs/mcp-server-guide.md) | All 35 tools, validation rules, Terraform module patterns, end-to-end examples |
 | [Security](docs/security.md) | Threat model, command allowlists, tool annotations, governance controls |
 | [Architecture](docs/architecture.md) | Component diagrams, data flows, deployment patterns, design decisions |
