@@ -158,7 +158,7 @@ EXPECTED_POLICIES: dict[str, dict] = {
         "risk": "HIGH",
         "rationale": "Public cluster endpoints expose the Kubernetes API to the internet.",
     },
-    # GKE — custom constraints (from ONS gcp-terraform-org-policy)
+    # GKE — custom constraints
     "custom.gkeClusterUMaintenanceWindowsEnforced": {
         "category": "gke-custom",
         "description": "Require GKE cluster maintenance windows",
@@ -439,7 +439,7 @@ def register_org_policy_tools(mcp) -> None:
     ) -> str:
         """Generate Terraform code to enforce recommended Organisation Policies.
 
-        Produces HCL for all expected org policies that match the ONS baseline.
+        Produces HCL for all expected org policies that match the baseline.
         The output can be applied at project or organisation level.
 
         Args:

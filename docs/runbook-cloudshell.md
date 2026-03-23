@@ -138,7 +138,7 @@ GOOGLE_CLOUD_LOCATION=europe-west2
 After running diagnostics:
 
 ```bash
-# VPC-SC implementation guide (raw HCL + ONS module call)
+# VPC-SC implementation guide (raw HCL + The module call)
 python3 scripts/run-diagnostic.py --implementation-guide
 
 # Org policy Terraform (all 31 policies)

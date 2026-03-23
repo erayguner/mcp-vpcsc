@@ -113,7 +113,7 @@ The diagnostic scans 10 areas and produces a protection gap analysis showing whi
 
 > Generate an implementation guide for data-analytics workload
 
-This produces Terraform code (raw HCL + ONS module call) tailored to your project.
+This produces Terraform code (raw HCL + The module call) tailored to your project.
 
 ## Deploy ADK agent to Cloud Run (optional)
 

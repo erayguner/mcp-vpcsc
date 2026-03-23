@@ -90,7 +90,7 @@ Then ask:
 
 > Generate an implementation guide for this project
 
-The agent calls `generate_implementation_guide`, which produces Terraform code (both raw HCL and ONS module calls) tailored to your project's detected services and service accounts.
+The agent calls `generate_implementation_guide`, which produces Terraform code (both raw HCL and The module calls) tailored to your project's detected services and service accounts.
 
 ## Check org policy compliance
 

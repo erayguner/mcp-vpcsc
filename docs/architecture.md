@@ -413,5 +413,5 @@ vpcsc-mcp/
 | Annotations on every tool | MCP spec best practice; drives client-side confirmation UX |
 | Temp directory for terraform validate | No persistent state; clean up guaranteed via `finally` block |
 | `confirm=True` parameter (not MCP elicitation) | Works with all clients, not just those supporting elicitation |
-| ONS module Terraform in implementation guide | Matches the existing codebase pattern; ready to paste into `vpcsc-*.tf` files |
+| The module Terraform in implementation guide | Matches the existing codebase pattern; ready to paste into `vpcsc-*.tf` files |
 | Localhost binding by default for HTTP | Prevents accidental network exposure; Cloud Run detected via `K_SERVICE` |

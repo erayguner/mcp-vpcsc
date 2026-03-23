@@ -18,7 +18,7 @@ A Model Context Protocol (MCP) server that helps AI agents and developers set up
   - [Diagnostics and implementation guides](#5-diagnostics-and-implementation-guides)
 - [Resources and prompts](#resources-and-prompts)
 - [Validation rules and constraints](#validation-rules-and-constraints)
-- [Terraform examples with the ONS perimeter module](#terraform-examples-with-the-ons-perimeter-module)
+- [Terraform examples with the perimeter module](#terraform-examples-with-the-ons-perimeter-module)
   - [Complete perimeter example](#complete-perimeter-example)
   - [Egress rule variables](#egress-rule-variables)
   - [Ingress rule variables](#ingress-rule-variables)
@@ -41,7 +41,7 @@ A Model Context Protocol (MCP) server that helps AI agents and developers set up
 | **Validate inputs** | Checks identity format, service support, and perimeter design before you apply anything |
 | **Provide patterns** | Supplies pre-built ingress/egress rule templates for common scenarios (BigQuery cross-project reads, Cloud Build deploys, Vertex AI predictions, etc.) |
 | **Diagnose projects** | Scans the authenticated project for VPC-SC readiness: enabled APIs, org, perimeters, SAs, violations |
-| **Generate implementation guides** | Produces 7-phase Terraform guides with both raw HCL and ONS module calls |
+| **Generate implementation guides** | Produces 7-phase Terraform guides with both raw HCL and The module calls |
 | **Health check** | `/health` endpoint for Cloud Run probes (HTTP transports only) |
 
 ## What this server does NOT do
@@ -212,7 +212,7 @@ These tools produce HCL strings. They do **not** write files or call Terraform. 
 | Tool | Purpose |
 |---|---|
 | `diagnose_project` | Full VPC-SC readiness scan of the authenticated project |
-| `generate_implementation_guide` | 7-phase Terraform guide with both raw HCL and ONS module calls |
+| `generate_implementation_guide` | 7-phase Terraform guide with both raw HCL and The module calls |
 
 **`diagnose_project` runs 10 steps:**
 
@@ -269,7 +269,7 @@ Three possible statuses:
 - Phase 3: Perimeter in dry-run mode (raw HCL)
 - Phase 4: Monitoring commands
 - Phase 5A: Raw Terraform ingress/egress rules
-- Phase 5B: ONS perimeter module call with auto-detected service accounts mapped to the correct module variables (`ingress_terraform_cloud_build`, `generic_egress_cloudfunctions_deploy`, `generic_ingress_bigquery_read`, etc.)
+- Phase 5B: The perimeter module call with auto-detected service accounts mapped to the correct module variables (`ingress_terraform_cloud_build`, `generic_egress_cloudfunctions_deploy`, `generic_ingress_bigquery_read`, etc.)
 - Phase 6: Enforcement commands
 - Phase 7: Ongoing monitoring
 - Module variable quick reference (all common egress/ingress variable names)
@@ -280,7 +280,7 @@ Three possible statuses:
 - `generate_implementation_guide` accepts `workload_type` to tailor service recommendations.
 - Both tools log progress to stderr: `[1/10] Resolving active GCP project...`
 - Both tools report progress via MCP Context when available.
-- The ONS module Terraform in Phase 5B is ready to paste into your `vpcsc-*.tf` files with minimal edits.
+- The module Terraform in Phase 5B is ready to paste into your `vpcsc-*.tf` files with minimal edits.
 
 ### 6. Organisation Policy compliance
 
@@ -337,7 +337,7 @@ ORG POLICY COMPLIANCE SUMMARY
 - Requires `roles/orgpolicy.policyViewer` on the project or org.
 - Requires the `orgpolicy.googleapis.com` API enabled.
 - Recommendations are prioritised by risk: HIGH (fix immediately), MEDIUM (fix in next sprint).
-- The org policy baseline matches the ONS `gcp-terraform-org-policy` module.
+- The org policy baseline matches the `gcp-terraform-org-policy` module.
 
 ---
 
@@ -365,7 +365,7 @@ ORG POLICY COMPLIANCE SUMMARY
 
 ## Validation rules and constraints
 
-The MCP server enforces the same validation rules as the ONS Terraform modules. Understanding these prevents errors at both the MCP and Terraform layers.
+The MCP server enforces the same validation rules as the Terraform modules. Understanding these prevents errors at both the MCP and Terraform layers.
 
 ### Identity format
 
@@ -409,7 +409,7 @@ Access levels **must** start with `accessPolicies`:
 accessPolicies/123456/accessLevels/my_level
 ```
 
-### Perimeter name format (ONS convention)
+### Perimeter name format (convention)
 
 Perimeter names must be lowercase and end with an environment suffix:
 
@@ -430,9 +430,9 @@ This is the single most common source of confusion with VPC-SC rules:
 
 ---
 
-## Terraform examples with the ONS perimeter module
+## Terraform examples with the perimeter module
 
-The MCP server generates raw `google_access_context_manager_*` HCL as a reference. In this repository, perimeters are created by calling the ONS perimeter module. This section shows how to translate MCP output into module calls.
+The MCP server generates raw `google_access_context_manager_*` HCL as a reference. In this repository, perimeters are created by calling the perimeter module. This section shows how to translate MCP output into module calls.
 
 ### How the module works
 
@@ -863,7 +863,7 @@ Step 3 — Or generate YAML for gcloud:
 
 ### Dry-run egress gap
 
-The ONS perimeter module has a difference between enforced and dry-run egress policies. In the enforced `status` block, `egress_from` supports `sources` and `source_restriction`. In the dry-run `spec` block, these fields are omitted. This means source-restricted egress rules cannot be tested in dry-run mode.
+The perimeter module has a difference between enforced and dry-run egress policies. In the enforced `status` block, `egress_from` supports `sources` and `source_restriction`. In the dry-run `spec` block, these fields are omitted. This means source-restricted egress rules cannot be tested in dry-run mode.
 
 ### Method selector coverage
 
@@ -887,7 +887,7 @@ The `update_perimeter_resources` and `update_perimeter_services` tools return a 
 
 ### Terraform generation is a starting point
 
-Generated HCL uses the raw `google_access_context_manager_*` resource syntax. The `generate_implementation_guide` tool also produces ONS module calls. In this repository, use the module format rather than raw resources.
+Generated HCL uses the raw `google_access_context_manager_*` resource syntax. The `generate_implementation_guide` tool also produces The module calls. In this repository, use the module format rather than raw resources.
 
 ### No state awareness
 

@@ -704,9 +704,9 @@ Detected service accounts in this project ({len(service_accounts)} total):
 """
 
         guide += f"""
-PHASE 5B: MODULE-BASED TERRAFORM (ONS perimeter module)
+PHASE 5B: MODULE-BASED TERRAFORM (The perimeter module)
 ---------------------------------------------------------
-Use this if deploying via the ONS gcp-vpcsc-modules perimeter module.
+Use this if deploying via the perimeter module.
 The module handles method selectors automatically — you only supply
 identities and target resources.
 
@@ -797,7 +797,7 @@ SERVICES TO RESTRICT ({len(restricted_services)} total)
 {'=' * 60}
 MODULE VARIABLE QUICK REFERENCE
 {'=' * 60}
-The ONS perimeter module uses pre-defined method selectors.
+The perimeter module uses pre-defined method selectors.
 Pick the right variable name for your use case:
 
 EGRESS (who inside perimeter can access what outside):
