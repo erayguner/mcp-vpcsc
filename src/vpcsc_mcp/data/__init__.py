@@ -1,1 +1,1 @@
-"""VPC-SC reference data — supported services, common patterns, best practices."""
+"""VPC-SC reference data — supported services, common patterns, org policies, and best practices."""

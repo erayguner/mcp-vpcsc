@@ -1,6 +1,8 @@
-"""Output sanitisation, result truncation, and tool annotation presets.
+"""Security module — command validation, output sanitisation, and tool annotation presets.
 
 Implements MCP security best practices:
+- Validate gcloud arguments against command/flag allowlists
+- Reject shell metacharacters in user-provided arguments
 - Strip instruction-like content from tool outputs (prompt injection defence)
 - Truncate long results to prevent context pollution
 - Provide annotation presets for tool safety declarations
@@ -77,3 +79,64 @@ def sanitise_output(text: str) -> str:
         )
 
     return cleaned
+
+
+# ─── Command Validation ───────────────────────────────────────────────────
+# Consolidated from gcloud_ops.py — single source of truth for what's allowed.
+
+# Allowed gcloud subcommands — prevents arbitrary command execution.
+ALLOWED_SUBCOMMANDS = frozenset({
+    "access-context-manager",
+    "config",
+    "compute",
+    "iam",
+    "logging",
+    "org-policies",
+    "organizations",
+    "projects",
+    "services",
+})
+
+# Only these gcloud flags are allowed. Prevents --impersonate-service-account,
+# --access-token-file, --configuration, and other privilege-escalation flags.
+ALLOWED_FLAGS = frozenset({
+    "--add-resources",
+    "--add-restricted-services",
+    "--enabled",
+    "--format",
+    "--freshness",
+    "--limit",
+    "--organization",
+    "--policy",
+    "--project",
+    "--remove-resources",
+    "--remove-restricted-services",
+})
+
+# Pattern for safe argument values — alphanumeric, hyphens, underscores,
+# dots, slashes, colons, equals, at-signs, commas, and spaces.
+_SAFE_ARG = re.compile(r'^[\w\-\./:=@,\s*"\']+$')
+
+
+def validate_gcloud_args(args: list[str]) -> str | None:
+    """Validate gcloud arguments against the command allowlist.
+
+    Returns an error message string if validation fails, or None if the arguments are safe.
+    """
+    if not args:
+        return "No gcloud arguments provided."
+
+    subcommand = args[0]
+    if subcommand not in ALLOWED_SUBCOMMANDS:
+        return f"Subcommand '{subcommand}' is not in the allowed list: {sorted(ALLOWED_SUBCOMMANDS)}"
+
+    for arg in args:
+        if not _SAFE_ARG.match(arg):
+            return f"Argument contains disallowed characters: {arg!r}"
+
+        if arg.startswith("--"):
+            flag_name = arg.split("=")[0]
+            if flag_name not in ALLOWED_FLAGS:
+                return f"Flag '{flag_name}' is not in the allowed list. Allowed: {sorted(ALLOWED_FLAGS)}"
+
+    return None
