@@ -5,49 +5,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 import sys
 import time
 
-logger = logging.getLogger(__name__)
+from vpcsc_mcp.tools.safety import validate_gcloud_args
 
-# Allowed gcloud subcommands — prevents arbitrary command execution.
-# Only access-context-manager, logging, iam, compute, services, projects,
-# organisations, and config operations are permitted.
-_ALLOWED_SUBCOMMANDS = frozenset({
-    "access-context-manager",
-    "config",
-    "compute",
-    "iam",
-    "logging",
-    "org-policies",
-    "organizations",
-    "projects",
-    "services",
-})
+logger = logging.getLogger(__name__)
 
 # Max time (seconds) a single gcloud call may take before being killed.
 _GCLOUD_TIMEOUT = 120
-
-# Pattern for safe argument values — alphanumeric, hyphens, underscores,
-# dots, slashes, colons, equals, at-signs, commas, and spaces.
-_SAFE_ARG = re.compile(r'^[\w\-\./:=@,\s*"\']+$')
-
-# Only these gcloud flags are allowed. Prevents --impersonate-service-account,
-# --access-token-file, --configuration, and other privilege-escalation flags.
-_ALLOWED_FLAGS = frozenset({
-    "--add-resources",
-    "--add-restricted-services",
-    "--enabled",
-    "--format",
-    "--freshness",
-    "--limit",
-    "--organization",
-    "--policy",
-    "--project",
-    "--remove-resources",
-    "--remove-restricted-services",
-})
 
 
 def _log(message: str) -> None:
@@ -55,42 +21,17 @@ def _log(message: str) -> None:
     print(f"[vpcsc-mcp] {message}", file=sys.stderr, flush=True)
 
 
-def _validate_args(args: list[str]) -> str | None:
-    """Validate gcloud arguments. Return error message or None if safe."""
-    if not args:
-        return "No gcloud arguments provided."
-
-    # First arg must be an allowed subcommand
-    subcommand = args[0]
-    if subcommand not in _ALLOWED_SUBCOMMANDS:
-        return f"Subcommand '{subcommand}' is not in the allowed list: {sorted(_ALLOWED_SUBCOMMANDS)}"
-
-    # Check each arg
-    for arg in args:
-        # Reject shell metacharacters
-        if not _SAFE_ARG.match(arg):
-            return f"Argument contains disallowed characters: {arg!r}"
-
-        # If it's a flag (starts with --), it must be in the allowed set
-        if arg.startswith("--"):
-            flag_name = arg.split("=")[0]  # extract --flag from --flag=value
-            if flag_name not in _ALLOWED_FLAGS:
-                return f"Flag '{flag_name}' is not in the allowed list. Allowed: {sorted(_ALLOWED_FLAGS)}"
-
-    return None
-
-
 async def run_gcloud(args: list[str], project: str | None = None) -> dict:
     """Execute a gcloud command and return parsed JSON output.
 
     Security:
-      - Only allowed subcommands are executed (see _ALLOWED_SUBCOMMANDS).
+      - Only allowed subcommands are executed (see safety.ALLOWED_SUBCOMMANDS).
       - Arguments are validated against a safe character pattern.
       - Uses create_subprocess_exec (not shell=True) — no shell injection.
       - Enforces a timeout to prevent hung processes.
     """
     # Validate arguments before execution
-    error = _validate_args(args)
+    error = validate_gcloud_args(args)
     if error:
         _log(f"BLOCKED: {error}")
         return {"error": f"Validation failed: {error}", "command": f"gcloud {' '.join(args)}"}
