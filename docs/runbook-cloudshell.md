@@ -112,7 +112,7 @@ GOOGLE_CLOUD_LOCATION=europe-west2
 
 10 steps:
 1. Resolve project and metadata
-2. Scan 217 VPC-SC supported APIs
+2. Scan 216 VPC-SC supported APIs
 3. Check organisation and access policy
 4. List perimeters (flag which contain this project)
 5. List access levels

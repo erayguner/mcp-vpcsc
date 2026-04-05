@@ -96,7 +96,7 @@ Each module registers its tools via a `register_*_tools(mcp)` function. This kee
 
 | Module | Content | Mutability |
 |---|---|---|
-| `services.py` (~400 lines) | 217 supported services, 7 workload recommendations, 10 services with method selectors | Static — loaded at import time |
+| `services.py` (~400 lines) | 216 supported services, 7 workload recommendations, 10 services with method selectors | Static — loaded at import time |
 | `patterns.py` (~450 lines) | 7 ingress patterns, 7 egress patterns, 6 troubleshooting guides | Static — loaded at import time |
 
 ### Security layer (`safety.py`)
@@ -372,7 +372,7 @@ vpcsc-mcp/
 │   │   └── safety.py          75 lines   Annotation presets, sanitise_output
 │   └── data/
 │       ├── __init__.py          1 line
-│       ├── services.py      ~600 lines   217 services, 7 workloads, 10 method selector sets
+│       ├── services.py      ~600 lines   216 services, 7 workloads, 10 method selector sets
 │       └── patterns.py      ~450 lines   7 ingress + 7 egress patterns, 6 troubleshooting guides
 ├── terraform/
 │   ├── main.tf                            Root config

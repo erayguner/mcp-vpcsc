@@ -12,6 +12,37 @@ import textwrap
 _TF_IDENTIFIER = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*$")
 _NUMERIC = re.compile(r"^[0-9]+$")
 _SERVICE_API = re.compile(r"^[a-z0-9.-]+\.googleapis\.com$")
+_SAFE_FILENAME = re.compile(r"[^a-zA-Z0-9_-]")
+
+
+def _maybe_write_hcl(
+    hcl: str,
+    project_name: str | None,
+    resource_type: str,
+    resource_name: str,
+    output_dir: str | None = None,
+) -> str:
+    """Optionally write HCL to a project-prefixed file in the working directory.
+
+    When *project_name* is provided the HCL is written to
+    ``{output_dir}/{project_name}_{resource_type}_{resource_name}.tf``
+    and the return value includes both the file path and the HCL content.
+    When *project_name* is ``None`` the HCL is returned unchanged.
+    """
+    if not project_name:
+        return hcl
+
+    safe_project = _SAFE_FILENAME.sub("_", project_name.lower()).strip("_")
+    safe_name = _SAFE_FILENAME.sub("_", resource_name.lower()).strip("_")
+    filename = f"{safe_project}_{resource_type}_{safe_name}.tf"
+    directory = output_dir or os.getcwd()
+    filepath = os.path.join(directory, filename)
+
+    with open(filepath, "w") as f:
+        f.write(hcl)
+
+    _tf_log(f"Wrote {len(hcl)} chars to {filepath}")
+    return f"File written: {filepath}\n\n{hcl}"
 
 
 def _tf_log(message: str) -> None:
@@ -86,6 +117,8 @@ def register_terraform_tools(mcp) -> None:
         description: str | None = None,
         dry_run: bool = True,
         access_level_names: list[str] | None = None,
+        project_name: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
         """Generate Terraform HCL for a VPC-SC regular service perimeter.
 
@@ -98,6 +131,8 @@ def register_terraform_tools(mcp) -> None:
             description: Optional description of the perimeter and its purpose.
             dry_run: Whether to use dry-run mode (spec block). Default True.
             access_level_names: Optional list of access level names to allow.
+            project_name: If set, writes HCL to {project_name}_perimeter_{name}.tf in output_dir.
+            output_dir: Directory for output file. Defaults to current working directory.
         """
         # Validate inputs
         if not _TF_IDENTIFIER.match(name):
@@ -135,7 +170,7 @@ def register_terraform_tools(mcp) -> None:
         if description:
             desc_line = f'\n  description    = "{_sanitise_hcl_string(description)}"'
 
-        return textwrap.dedent(f"""\
+        hcl = textwrap.dedent(f"""\
         resource "google_access_context_manager_service_perimeter" "{name}" {{
           parent         = "accessPolicies/{policy_id}"
           name           = "accessPolicies/{policy_id}/servicePerimeters/{name}"
@@ -148,6 +183,7 @@ def register_terraform_tools(mcp) -> None:
           }}
         }}
         """)
+        return _maybe_write_hcl(hcl, project_name, "perimeter", name, output_dir)
 
     @mcp.tool(annotations=GENERATE)
     def generate_access_level_terraform(
@@ -158,6 +194,8 @@ def register_terraform_tools(mcp) -> None:
         members: list[str] | None = None,
         regions: list[str] | None = None,
         require_all: bool = True,
+        project_name: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
         """Generate Terraform HCL for a VPC-SC access level.
 
@@ -169,6 +207,8 @@ def register_terraform_tools(mcp) -> None:
             members: List of identity members (e.g. 'user:admin@example.com').
             regions: List of region codes (e.g. 'GB', 'US').
             require_all: If True, all conditions must be met (AND). If False, any (OR).
+            project_name: If set, writes HCL to {project_name}_access_level_{name}.tf in output_dir.
+            output_dir: Directory for output file. Defaults to current working directory.
         """
         title = title or name
         combining = "AND" if require_all else "OR"
@@ -189,7 +229,7 @@ def register_terraform_tools(mcp) -> None:
 
         conditions_block = "\n".join(conditions_parts)
 
-        return textwrap.dedent(f"""\
+        hcl = textwrap.dedent(f"""\
         resource "google_access_context_manager_access_level" "{name}" {{
           parent = "accessPolicies/{policy_id}"
           name   = "accessPolicies/{policy_id}/accessLevels/{name}"
@@ -204,6 +244,7 @@ def register_terraform_tools(mcp) -> None:
           }}
         }}
         """)
+        return _maybe_write_hcl(hcl, project_name, "access_level", name, output_dir)
 
     @mcp.tool(annotations=GENERATE)
     def generate_bridge_terraform(
@@ -212,6 +253,8 @@ def register_terraform_tools(mcp) -> None:
         project_numbers_a: list[str],
         project_numbers_b: list[str],
         title: str | None = None,
+        project_name: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
         """Generate Terraform HCL for a VPC-SC bridge perimeter connecting two perimeters.
 
@@ -221,12 +264,14 @@ def register_terraform_tools(mcp) -> None:
             project_numbers_a: Project numbers from perimeter A.
             project_numbers_b: Project numbers from perimeter B.
             title: Human-readable title. Defaults to name.
+            project_name: If set, writes HCL to {project_name}_bridge_{name}.tf in output_dir.
+            output_dir: Directory for output file. Defaults to current working directory.
         """
         title = title or name
         all_projects = [f"projects/{p}" for p in project_numbers_a + project_numbers_b]
         resources_hcl = _hcl_list(all_projects, indent=4)
 
-        return textwrap.dedent(f"""\
+        hcl = textwrap.dedent(f"""\
         resource "google_access_context_manager_service_perimeter" "{name}" {{
           parent         = "accessPolicies/{policy_id}"
           name           = "accessPolicies/{policy_id}/servicePerimeters/{name}"
@@ -238,6 +283,7 @@ def register_terraform_tools(mcp) -> None:
           }}
         }}
         """)
+        return _maybe_write_hcl(hcl, project_name, "bridge", name, output_dir)
 
     @mcp.tool(annotations=GENERATE)
     def generate_ingress_policy_terraform(
@@ -251,6 +297,8 @@ def register_terraform_tools(mcp) -> None:
         target_resources: list[str] | None = None,
         roles: list[str] | None = None,
         title: str = "Ingress Rule",
+        project_name: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
         """Generate Terraform HCL for a VPC-SC ingress policy block.
 
@@ -269,6 +317,8 @@ def register_terraform_tools(mcp) -> None:
             roles: IAM roles to allow (e.g. 'roles/bigquery.admin'). Alternative to
                 method_selectors — simpler when granting broad access.
             title: Title for the ingress policy.
+            project_name: If set, writes HCL to {project_name}_ingress_{title}.tf in output_dir.
+            output_dir: Directory for output file. Defaults to current working directory.
         """
         target_resources = target_resources or ["*"]
 
@@ -337,7 +387,7 @@ def register_terraform_tools(mcp) -> None:
 
         to_block = "\n".join(to_parts)
 
-        return textwrap.dedent(f"""\
+        hcl = textwrap.dedent(f"""\
         # {title}
         ingress_policies {{
           title = "{title}"
@@ -349,6 +399,7 @@ def register_terraform_tools(mcp) -> None:
           }}
         }}
         """)
+        return _maybe_write_hcl(hcl, project_name, "ingress", title, output_dir)
 
     @mcp.tool(annotations=GENERATE)
     def generate_egress_policy_terraform(
@@ -363,6 +414,8 @@ def register_terraform_tools(mcp) -> None:
         source_access_level: str | None = None,
         roles: list[str] | None = None,
         title: str = "Egress Rule",
+        project_name: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
         """Generate Terraform HCL for a VPC-SC egress policy block.
 
@@ -384,6 +437,8 @@ def register_terraform_tools(mcp) -> None:
             roles: IAM roles to allow (e.g. 'roles/bigquery.admin'). Alternative to
                 method_selectors — simpler when granting broad access.
             title: Title for the egress policy.
+            project_name: If set, writes HCL to {project_name}_egress_{title}.tf in output_dir.
+            output_dir: Directory for output file. Defaults to current working directory.
         """
         if target_resources:
             targets = target_resources
@@ -464,7 +519,7 @@ def register_terraform_tools(mcp) -> None:
 
         to_block = "\n".join(to_parts)
 
-        return textwrap.dedent(f"""\
+        hcl = textwrap.dedent(f"""\
         # {title}
         egress_policies {{
           title = "{title}"
@@ -476,30 +531,36 @@ def register_terraform_tools(mcp) -> None:
           }}
         }}
         """)
+        return _maybe_write_hcl(hcl, project_name, "egress", title, output_dir)
 
     @mcp.tool(annotations=GENERATE)
     def generate_vpc_accessible_services_terraform(
         allowed_services: list[str],
+        project_name: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
         """Generate Terraform HCL for the vpc_accessible_services block.
 
         Args:
             allowed_services: Services accessible from VPCs inside the perimeter. Use ['*'] for all.
+            project_name: If set, writes HCL to {project_name}_vpc_accessible_services.tf in output_dir.
+            output_dir: Directory for output file. Defaults to current working directory.
         """
         if allowed_services == ["*"]:
-            return textwrap.dedent("""\
+            hcl = textwrap.dedent("""\
             # VPC Accessible Services: all services allowed
             # vpc_accessible_services block is omitted when allowing all services.
             # To restrict, specify an explicit list of services.
             """)
-
-        services_hcl = _hcl_list(allowed_services, indent=6)
-        return textwrap.dedent(f"""\
-        vpc_accessible_services {{
-          enable_restriction = true
-          allowed_services   = {services_hcl}
-        }}
-        """)
+        else:
+            services_hcl = _hcl_list(allowed_services, indent=6)
+            hcl = textwrap.dedent(f"""\
+            vpc_accessible_services {{
+              enable_restriction = true
+              allowed_services   = {services_hcl}
+            }}
+            """)
+        return _maybe_write_hcl(hcl, project_name, "vpc_accessible_services", "config", output_dir)
 
     @mcp.tool(annotations=GENERATE)
     def generate_standalone_ingress_policy_terraform(
@@ -512,6 +573,8 @@ def register_terraform_tools(mcp) -> None:
         source_project_numbers: list[str] | None = None,
         roles: list[str] | None = None,
         title: str = "Ingress Rule",
+        project_name: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
         """Generate a standalone ingress policy Terraform resource.
 
@@ -536,6 +599,8 @@ def register_terraform_tools(mcp) -> None:
             source_project_numbers: Source project numbers.
             roles: IAM roles to allow. Alternative to method_selectors.
             title: Title for the ingress policy.
+            project_name: If set, writes HCL to {project_name}_ingress_policy_{title}.tf in output_dir.
+            output_dir: Directory for output file. Defaults to current working directory.
         """
         safe_title = title.lower().replace(" ", "_").replace("-", "_")
         safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", safe_title)
@@ -592,7 +657,7 @@ def register_terraform_tools(mcp) -> None:
             )
         to_block = "\n".join(to_lines)
 
-        return textwrap.dedent(f"""\
+        hcl = textwrap.dedent(f"""\
         resource "google_access_context_manager_service_perimeter_ingress_policy" "{safe_name}" {{
           perimeter = "{perimeter_resource_name}"
           title     = "{_sanitise_hcl_string(title)}"
@@ -610,6 +675,7 @@ def register_terraform_tools(mcp) -> None:
           }}
         }}
         """)
+        return _maybe_write_hcl(hcl, project_name, "ingress_policy", title, output_dir)
 
     @mcp.tool(annotations=GENERATE)
     def generate_standalone_egress_policy_terraform(
@@ -622,6 +688,8 @@ def register_terraform_tools(mcp) -> None:
         external_resources: list[str] | None = None,
         roles: list[str] | None = None,
         title: str = "Egress Rule",
+        project_name: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
         """Generate a standalone egress policy Terraform resource.
 
@@ -646,6 +714,8 @@ def register_terraform_tools(mcp) -> None:
             external_resources: Non-GCP target resources (e.g. 's3://bucket/path').
             roles: IAM roles to allow. Alternative to method_selectors.
             title: Title for the egress policy.
+            project_name: If set, writes HCL to {project_name}_egress_policy_{title}.tf in output_dir.
+            output_dir: Directory for output file. Defaults to current working directory.
         """
         safe_title = title.lower().replace(" ", "_").replace("-", "_")
         safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", safe_title)
@@ -700,7 +770,7 @@ def register_terraform_tools(mcp) -> None:
             )
         to_block = "\n".join(to_lines)
 
-        return textwrap.dedent(f"""\
+        hcl = textwrap.dedent(f"""\
         resource "google_access_context_manager_service_perimeter_egress_policy" "{safe_name}" {{
           perimeter = "{perimeter_resource_name}"
           title     = "{_sanitise_hcl_string(title)}"
@@ -718,6 +788,7 @@ def register_terraform_tools(mcp) -> None:
           }}
         }}
         """)
+        return _maybe_write_hcl(hcl, project_name, "egress_policy", title, output_dir)
 
     @mcp.tool(annotations=GENERATE)
     def generate_full_perimeter_terraform(
@@ -730,6 +801,8 @@ def register_terraform_tools(mcp) -> None:
         access_level_names: list[str] | None = None,
         ingress_rules_json: str | None = None,
         egress_rules_json: str | None = None,
+        project_name: str | None = None,
+        output_dir: str | None = None,
     ) -> str:
         """Generate a complete Terraform perimeter with inline ingress/egress policies.
 
@@ -747,6 +820,8 @@ def register_terraform_tools(mcp) -> None:
             egress_rules_json: JSON array of egress rules, each with: title,
                 identity_type or identities, targets, service_name,
                 method_selectors.
+            project_name: If set, writes HCL to {project_name}_perimeter_full_{name}.tf in output_dir.
+            output_dir: Directory for output file. Defaults to current working directory.
         """
         title = title or name
         resources_hcl = _hcl_list([f"projects/{p}" for p in project_numbers], indent=4)
@@ -784,7 +859,7 @@ def register_terraform_tools(mcp) -> None:
             except (json.JSONDecodeError, KeyError) as e:
                 egress_blocks = f"\n    # Error parsing egress rules: {e}"
 
-        return textwrap.dedent(f"""\
+        hcl = textwrap.dedent(f"""\
         resource "google_access_context_manager_service_perimeter" "{name}" {{
           parent         = "accessPolicies/{policy_id}"
           name           = "accessPolicies/{policy_id}/servicePerimeters/{name}"
@@ -798,6 +873,7 @@ def register_terraform_tools(mcp) -> None:
           }}
         }}
         """)
+        return _maybe_write_hcl(hcl, project_name, "perimeter_full", name, output_dir)
 
 
     @mcp.tool(annotations=DIAGNOSTIC)

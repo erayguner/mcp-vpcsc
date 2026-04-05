@@ -87,7 +87,7 @@ The list of Google Cloud APIs that a perimeter protects. Only services in this l
 
 **MCP tools:**
 - `recommend_restricted_services(workload_type)` — suggests which services to restrict based on your workload (AI/ML, data analytics, web app, etc.)
-- `list_supported_services()` — lists all 217 services the MCP knows support VPC-SC
+- `list_supported_services()` — lists all 216 services the MCP knows support VPC-SC
 - `list_supported_services_live()` — queries the live canonical list from the Access Context Manager API
 - `describe_supported_service(service_name)` — gets method-level restrictions for a service from the live API
 - `check_service_support(service_name)` — checks if a specific service supports VPC-SC

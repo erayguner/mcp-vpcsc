@@ -6,7 +6,7 @@ https://cloud.google.com/vpc-service-controls/docs/supported-products
 Use ``gcloud access-context-manager supported-services list`` for the
 live canonical list.  This file is a curated snapshot for offline use.
 
-Last updated: 2026-04-05 (210 products, 217 unique API endpoints)
+Last updated: 2026-04-05 (210 products, 216 unique API endpoints)
 """
 
 # Services confirmed as supporting VPC Service Controls.
@@ -15,16 +15,15 @@ SUPPORTED_SERVICES: dict[str, str] = {
     # ── AI / ML ──────────────────────────────────────────────────────
     "adsdatahub.googleapis.com": "Ads Data Hub",
     "aiplatform.googleapis.com": "Vertex AI",
-    "automl.googleapis.com": "AutoML (deprecated)",
+    "automl.googleapis.com": "AutoML (deprecated Sep 2025, also covers eu-automl.googleapis.com)",
     "cloudaicompanion.googleapis.com": "Gemini Code Assist",
     "discoveryengine.googleapis.com": "Vertex AI Search / Gemini Enterprise / NotebookLM Enterprise",
     "documentai.googleapis.com": "Document AI",
-    "eu-automl.googleapis.com": "AutoML (EU regional, deprecated)",
     "firebasevertexai.googleapis.com": "Vertex AI in Firebase",
     "geminicloudassist.googleapis.com": "Gemini Cloud Assist",
     "geminidataanalytics.googleapis.com": "Conversational Analytics API",
     "language.googleapis.com": "Cloud Natural Language",
-    "ml.googleapis.com": "AI Platform Training (deprecated)",
+    "ml.googleapis.com": "AI Platform Training/Prediction (deprecated Jan 2025)",
     "notebooks.googleapis.com": "Vertex AI Workbench",
     "retail.googleapis.com": "Vertex AI Search for Retail",
     "speech.googleapis.com": "Cloud Speech-to-Text",
@@ -59,7 +58,7 @@ SUPPORTED_SERVICES: dict[str, str] = {
     "container.googleapis.com": "Google Kubernetes Engine",
     "containeranalysis.googleapis.com": "Artifact Analysis",
     "containerfilesystem.googleapis.com": "Image Streaming",
-    "containerregistry.googleapis.com": "Container Registry (deprecated)",
+    "containerregistry.googleapis.com": "Container Registry (shut down Mar 2025, use Artifact Registry)",
     "containersecurity.googleapis.com": "Container Security API",
     "containerthreatdetection.googleapis.com": "Container Threat Detection",
     "gkebackup.googleapis.com": "Backup for GKE",
@@ -269,7 +268,6 @@ WORKLOAD_RECOMMENDATIONS: dict[str, dict] = {
         "recommended": [
             "notebooks.googleapis.com",
             "artifactregistry.googleapis.com",
-            "containerregistry.googleapis.com",
             "dataflow.googleapis.com",
             "logging.googleapis.com",
             "monitoring.googleapis.com",
