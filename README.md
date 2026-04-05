@@ -4,6 +4,8 @@
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP SDK](https://img.shields.io/badge/MCP_SDK-1.26.0-green.svg)](https://pypi.org/project/mcp/)
+[![Tools](https://img.shields.io/badge/tools-40-brightgreen.svg)](docs/mcp-server-guide.md)
+[![GCP Services](https://img.shields.io/badge/GCP_services-147-informational.svg)](src/vpcsc_mcp/data/services.py)
 [![Ruff](https://img.shields.io/badge/linting-ruff-orange.svg)](https://docs.astral.sh/ruff/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 [![uv](https://img.shields.io/badge/uv-package_manager-blueviolet.svg)](https://docs.astral.sh/uv/)
