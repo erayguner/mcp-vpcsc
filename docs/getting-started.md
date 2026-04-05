@@ -2,6 +2,48 @@
 
 Set up the VPC-SC MCP server in under 5 minutes. Pick your environment and follow the steps.
 
+**New to VPC Service Controls?** Read [VPC-SC Concepts](concepts.md) first — it explains what perimeters, access levels, and ingress/egress rules are and how this MCP maps to each concept.
+
+## Before you begin
+
+### What you need (all paths)
+
+| Requirement | Why | How to check |
+|---|---|---|
+| A GCP organisation | VPC-SC requires an org — personal projects can't use it | `gcloud organizations list` returns at least one org |
+| A GCP project with billing | gcloud tools query live GCP APIs | `gcloud config get-value project` returns your project ID |
+| `gcloud` CLI authenticated | The MCP server calls gcloud on your behalf | `gcloud auth list` shows an active account |
+| Python 3.10+ | The MCP server is a Python package | `python3 --version` shows 3.10 or later |
+
+### IAM permissions needed
+
+The MCP server runs read-only gcloud commands. Your authenticated account (or the Cloud Run service account) needs these roles:
+
+| Role | Grants access to | Required for |
+|---|---|---|
+| `roles/accesscontextmanager.policyReader` | Read perimeters, access levels, access policies | All gcloud query tools, diagnostics |
+| `roles/logging.viewer` | Read Cloud Audit Logs | `check_vpc_sc_violations`, violation scanning in diagnostics |
+| `roles/orgpolicy.policyViewer` | Read org policy constraints | `diagnose_org_policies` |
+| `roles/viewer` | Read project metadata, APIs, networks, SAs | `diagnose_project` (project-level details) |
+
+**Grant at the org level** for cross-project visibility:
+
+```bash
+gcloud organizations add-iam-policy-binding ORG_ID \
+  --member="user:you@example.com" \
+  --role="roles/accesscontextmanager.policyReader"
+```
+
+### APIs that should be enabled
+
+```bash
+# Required for VPC-SC operations
+gcloud services enable accesscontextmanager.googleapis.com --project=YOUR_PROJECT
+
+# Required for org policy diagnostics
+gcloud services enable orgpolicy.googleapis.com --project=YOUR_PROJECT
+```
+
 ## Choose your path
 
 | I want to... | Go to |
@@ -164,33 +206,61 @@ Add to `~/.gemini/settings.json`:
 
 ## What the server does
 
-Once connected, you have 35 tools that:
+Once connected, you have 36 tools, 5 resources, and 3 prompts that cover the full VPC-SC lifecycle:
 
-| Action | Example command |
-|---|---|
-| **Scan your project** | "Run a diagnostic on my project" |
-| **Check org policies** | "Check org policy compliance" |
-| **Find gaps** | "Which APIs are unprotected?" |
-| **Generate Terraform** | "Generate Terraform for a VPC-SC perimeter" |
-| **Generate YAML** | "Create an ingress rule for BigQuery cross-project read" |
-| **Troubleshoot denials** | "Troubleshoot RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER" |
-| **Validate Terraform** | "Validate this Terraform code" |
-| **Recommend services** | "What services should I restrict for an AI/ML workload?" |
+| Action | Example command | What it does |
+|---|---|---|
+| **Scan your project** | "Run a diagnostic on my project" | 10-step scan of APIs, perimeters, org, violations, protection gaps |
+| **Check org policies** | "Check org policy compliance" | Checks 31 policies across 11 categories, classifies compliance |
+| **Find gaps** | "Which APIs are unprotected?" | Cross-references enabled APIs vs perimeter restricted_services |
+| **Recommend services** | "What services should I restrict for an AI/ML workload?" | Tailored service list for 5 workload types |
+| **Generate Terraform** | "Generate Terraform for a VPC-SC perimeter" | HCL for perimeters, access levels, bridges, ingress/egress rules |
+| **Generate YAML** | "Create an ingress rule for BigQuery cross-project read" | YAML ready for `gcloud --set-ingress-policies` |
+| **Troubleshoot denials** | "Troubleshoot RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER" | Root cause, resolution steps, common pitfalls |
+| **Validate Terraform** | "Validate this Terraform code" | Runs `terraform init + validate + fmt` on generated HCL |
+| **Get implementation guide** | "Generate an implementation guide" | 7-phase Terraform plan with both raw HCL and module calls |
 
-## What happens next
+## Recommended onboarding flow
 
-1. Run the diagnostic to understand your current state
-2. Review the protection gaps and org policy findings
-3. Generate Terraform for the recommended changes
-4. Apply in dry-run mode first, monitor for violations
-5. Enforce once violations are resolved
+Whether you're new to VPC-SC or adding a new project to an existing perimeter, follow this sequence:
+
+```
+1. ASSESS          Run a diagnostic to understand your current state
+                   → diagnose_project + diagnose_org_policies
+
+2. PLAN            Review findings: protection gaps, non-compliant policies, violations
+                   → Decide which services to restrict, which rules you need
+
+3. GENERATE        Produce Terraform for the perimeter, access levels, and rules
+                   → generate_implementation_guide or individual generate_* tools
+
+4. VALIDATE        Check the generated Terraform is syntactically correct
+                   → validate_terraform
+
+5. DRY-RUN         Deploy the perimeter in dry-run mode (logs violations, doesn't block)
+                   → terraform apply with dry_run=True configuration
+
+6. MONITOR         Watch for violations over 7+ days, add rules for legitimate traffic
+                   → check_vpc_sc_violations (run daily)
+
+7. ENFORCE         Switch from dry-run to enforced mode
+                   → Update Terraform from spec block to status block
+
+8. MAINTAIN        Ongoing monitoring and compliance
+                   → diagnose_project + diagnose_org_policies periodically
+```
+
+See [Use Cases](use-cases.md) for detailed walkthroughs of each step in common scenarios.
 
 ## Need help?
 
 | Topic | Document |
 |---|---|
-| All 34 tools explained | [MCP Server Guide](mcp-server-guide.md) |
+| VPC-SC concepts explained | [Concepts](concepts.md) |
+| Practical scenarios | [Use Cases](use-cases.md) |
+| All 36 tools explained | [MCP Server Guide](mcp-server-guide.md) |
 | Security controls | [Security](security.md) |
 | Architecture | [Architecture](architecture.md) |
 | Cloud Run deployment details | [Runbook: Cloud Run](runbook-cloud-run.md) |
 | Cloud Shell details | [Runbook: Cloud Shell](runbook-cloudshell.md) |
+| Local setup details | [Runbook: Local](runbook-local.md) |

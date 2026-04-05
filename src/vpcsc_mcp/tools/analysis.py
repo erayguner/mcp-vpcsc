@@ -190,6 +190,81 @@ def register_analysis_tools(mcp) -> None:
         return "\n".join(lines)
 
     @mcp.tool(annotations=GENERATE)
+    def explain_method_selector_types() -> str:
+        """Explain the difference between 'method' and 'permission' selectors in VPC-SC rules.
+
+        This is the single most common source of confusion when writing ingress/egress rules.
+        Using the wrong selector type causes rules to silently fail — the rule exists but
+        never matches, and requests are denied without a clear explanation.
+        """
+        _log("TOOL: explain_method_selector_types()")
+
+        # Build the per-service type map from actual data
+        service_types: dict[str, str] = {}
+        for svc, presets in SERVICE_METHOD_SELECTORS.items():
+            for preset_name, selectors in presets.items():
+                if preset_name == "all":
+                    continue
+                for sel in selectors:
+                    if "permission" in sel:
+                        service_types[svc] = "permission"
+                        break
+                    elif "method" in sel:
+                        service_types[svc] = "method"
+                        break
+                if svc in service_types:
+                    break
+
+        lines = [
+            "METHOD vs PERMISSION SELECTORS IN VPC-SC",
+            "=" * 50,
+            "",
+            "VPC-SC ingress/egress rules support two types of selectors for controlling",
+            "which specific API operations are allowed. Using the WRONG type causes the",
+            "rule to silently fail — it exists but never matches any request.",
+            "",
+            "TYPE 1: 'method' selectors (RPC-style)",
+            "-" * 40,
+            "  Format: google.storage.objects.get",
+            "  Used by: Cloud Storage, Vertex AI, Pub/Sub, Cloud Logging, Secret Manager,",
+            "           Cloud Run, Compute Engine, GKE, Cloud SQL",
+            "  Example in rule:",
+            '    {"method": "google.storage.objects.get"}',
+            "",
+            "TYPE 2: 'permission' selectors (IAM-style)",
+            "-" * 40,
+            "  Format: bigquery.tables.getData",
+            "  Used by: BigQuery, Data Catalog",
+            "  Example in rule:",
+            '    {"permission": "bigquery.tables.getData"}',
+            "",
+            "SERVICES AND THEIR SELECTOR TYPES",
+            "-" * 40,
+        ]
+        for svc in sorted(service_types):
+            display = SUPPORTED_SERVICES.get(svc, svc)
+            lines.append(f"  {svc} ({display}): {service_types[svc]}")
+
+        lines.extend([
+            "",
+            "COMMON MISTAKES",
+            "-" * 40,
+            '  WRONG: {"method": "bigquery.tables.getData"}  — BigQuery needs "permission"',
+            '  RIGHT: {"permission": "bigquery.tables.getData"}',
+            "",
+            '  WRONG: {"permission": "google.storage.objects.get"}  — Storage needs "method"',
+            '  RIGHT: {"method": "google.storage.objects.get"}',
+            "",
+            "HOW TO AVOID THIS",
+            "-" * 40,
+            "  1. Use the get_method_selectors tool — it returns the correct type automatically",
+            "  2. Use the generate_ingress_yaml / generate_egress_yaml tools — they pick the right type",
+            "  3. Use the pre-built patterns (get_ingress_pattern / get_egress_pattern) — they are correct",
+            "  4. When in doubt, use {'method': '*'} to allow all methods, then narrow down",
+        ])
+        return "\n".join(lines)
+
+    @mcp.tool(annotations=GENERATE)
     def validate_identity_format(identities: list[str]) -> str:
         """Validate that identity strings are correctly formatted for VPC-SC rules.
 
@@ -247,6 +322,8 @@ def register_analysis_tools(mcp) -> None:
         services: list[str],
         has_cross_project_queries: bool = False,
         has_external_access: bool = False,
+        has_cicd_pipeline: bool = False,
+        has_serverless_workloads: bool = False,
         workload_type: str = "general",
     ) -> str:
         """Analyze a planned perimeter design and provide recommendations.
@@ -256,6 +333,8 @@ def register_analysis_tools(mcp) -> None:
             services: List of restricted services planned.
             has_cross_project_queries: Whether BigQuery cross-project queries are needed.
             has_external_access: Whether external users/services need access.
+            has_cicd_pipeline: Whether CI/CD pipelines (Cloud Build) deploy into the perimeter.
+            has_serverless_workloads: Whether Cloud Run/Functions/App Engine are used.
             workload_type: The primary workload type for additional recommendations.
         """
         findings = []
@@ -282,6 +361,16 @@ def register_analysis_tools(mcp) -> None:
                 "Most workloads need Cloud Storage and Logging."
             )
 
+        # Check for services that are often forgotten
+        security_services = {"cloudkms.googleapis.com", "secretmanager.googleapis.com"}
+        missing_security = security_services - set(services)
+        if missing_security and len(services) > 5:
+            findings.append(
+                f"Consider adding security services: {', '.join(missing_security)}. "
+                "Cloud KMS (encryption keys) and Secret Manager (credentials) are commonly "
+                "needed and should be protected to prevent key/secret exfiltration."
+            )
+
         # Check BigQuery cross-project
         if has_cross_project_queries:
             if "bigquery.googleapis.com" not in services:
@@ -291,20 +380,65 @@ def register_analysis_tools(mcp) -> None:
                 )
             recommendations.append(
                 "For cross-project BigQuery: you'll need both ingress rules (on data project perimeter) "
-                "and egress rules (on query project perimeter). This is the #1 source of VPC-SC violations."
+                "and egress rules (on query project perimeter). This is the #1 source of VPC-SC violations. "
+                "IMPORTANT: BigQuery uses 'permission' selectors, not 'method' selectors."
             )
 
         # Check external access
         if has_external_access:
             recommendations.append(
                 "External access needed — create access levels for corporate network IPs "
-                "and/or identity-based ingress rules for specific service accounts."
+                "and/or identity-based ingress rules for specific service accounts. "
+                "Note: access levels only use PUBLIC IP ranges (not RFC 1918). "
+                "When using Cloud NAT, caller IP is redacted — use identity-based rules instead."
+            )
+
+        # Check CI/CD pipeline
+        if has_cicd_pipeline:
+            if "cloudbuild.googleapis.com" not in services:
+                findings.append(
+                    "CI/CD pipeline planned but cloudbuild.googleapis.com not in restricted services. "
+                    "Add it to prevent build artifacts from being exfiltrated."
+                )
+            recommendations.append(
+                "For Cloud Build CI/CD: create an ingress rule allowing the Cloud Build service agent "
+                "(both the user SA and the P4SA). Use the 'cloud-build-deploy' ingress pattern. "
+                "Also ensure artifactregistry.googleapis.com is restricted to protect container images."
+            )
+
+        # Check serverless workloads
+        if has_serverless_workloads:
+            serverless_services = {"run.googleapis.com", "cloudfunctions.googleapis.com", "vpcaccess.googleapis.com"}
+            missing_serverless = serverless_services - set(services)
+            if missing_serverless:
+                warnings.append(
+                    f"Serverless workloads planned but missing: {', '.join(missing_serverless)}. "
+                    "Cloud Run/Functions need Serverless VPC Access (vpcaccess.googleapis.com) "
+                    "for private networking within the perimeter."
+                )
+
+        # Method selector warning
+        bq_and_storage = {"bigquery.googleapis.com", "storage.googleapis.com"}
+        if bq_and_storage.issubset(set(services)):
+            findings.append(
+                "Both BigQuery and Cloud Storage are restricted. When writing ingress/egress rules, "
+                "remember: BigQuery uses 'permission' selectors while Storage uses 'method' selectors. "
+                "Mixing them up causes rules to silently fail. Use get_method_selectors or "
+                "explain_method_selector_types to get the correct format."
             )
 
         # Dry-run recommendation
         recommendations.append(
             "Always start in dry-run mode to identify violations before enforcing. "
-            "Review Cloud Audit Logs for at least 1-2 weeks."
+            "Monitor Cloud Audit Logs for at least 7 days (ideally 2 weeks) to capture "
+            "all periodic workloads (daily jobs, weekly reports, etc.)."
+        )
+
+        # Monitoring recommendation
+        recommendations.append(
+            "Set up a log-based metric or alert for VPC-SC violations using a filter on "
+            "protoPayload.metadata.@type containing VpcServiceControlAuditMetadata. "
+            "This catches violations in both dry-run and enforced mode."
         )
 
         # Workload-specific
@@ -322,18 +456,18 @@ def register_analysis_tools(mcp) -> None:
         if warnings:
             lines.append(f"Warnings ({len(warnings)}):")
             for w in warnings:
-                lines.append(f"  - {w}")
+                lines.append(f"  [!] {w}")
             lines.append("")
 
         if findings:
             lines.append(f"Findings ({len(findings)}):")
             for f in findings:
-                lines.append(f"  - {f}")
+                lines.append(f"  [i] {f}")
             lines.append("")
 
         lines.append(f"Recommendations ({len(recommendations)}):")
         for r in recommendations:
-            lines.append(f"  - {r}")
+            lines.append(f"  [>] {r}")
 
         return "\n".join(lines)
 

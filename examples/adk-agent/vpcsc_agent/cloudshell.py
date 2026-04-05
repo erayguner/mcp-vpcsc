@@ -46,7 +46,7 @@ root_agent = LlmAgent(
     instruction="""\
 You are a VPC Service Controls and Organisation Policy specialist running in Google Cloud Shell.
 
-You have 34 tools from the VPC-SC MCP server. Use them to:
+You have 36 tools from the VPC-SC MCP server. Use them to:
 1. Run `diagnose_project` to scan the current project for VPC-SC readiness and protection gaps.
 2. Run `diagnose_org_policies` to check organisation policy compliance.
 3. Run `generate_implementation_guide` to produce Terraform code.

@@ -120,6 +120,53 @@ COMMON_INGRESS_PATTERNS: dict[str, dict] = {
             },
         },
     },
+    "gke-workload-identity": {
+        "title": "Allow GKE workload identity from external cluster",
+        "description": (
+            "Enables a GKE workload identity service account from an external "
+            "project to access resources inside the perimeter."
+        ),
+        "template": {
+            "ingressFrom": {
+                "identities": [
+                    "serviceAccount:{gke_sa_email}",
+                ],
+                "sources": [{"resource": "projects/{source_project_number}"}],
+            },
+            "ingressTo": {
+                "resources": ["*"],
+                "operations": [
+                    {"serviceName": "storage.googleapis.com", "methodSelectors": [{"method": "*"}]},
+                    {"serviceName": "secretmanager.googleapis.com", "methodSelectors": [{"method": "*"}]},
+                ],
+            },
+        },
+    },
+    "pubsub-cross-project-subscribe": {
+        "title": "Allow external service to subscribe to Pub/Sub topics",
+        "description": (
+            "Enables a service account from outside the perimeter to pull "
+            "messages from Pub/Sub subscriptions inside the perimeter."
+        ),
+        "template": {
+            "ingressFrom": {
+                "identities": ["serviceAccount:{sa_email}"],
+                "sources": [{"resource": "projects/{source_project_number}"}],
+            },
+            "ingressTo": {
+                "resources": ["*"],
+                "operations": [
+                    {
+                        "serviceName": "pubsub.googleapis.com",
+                        "methodSelectors": [
+                            {"method": "google.pubsub.v1.Subscriber.Pull"},
+                            {"method": "google.pubsub.v1.Subscriber.StreamingPull"},
+                        ],
+                    }
+                ],
+            },
+        },
+    },
 }
 
 COMMON_EGRESS_PATTERNS: dict[str, dict] = {
@@ -253,6 +300,64 @@ COMMON_EGRESS_PATTERNS: dict[str, dict] = {
             },
         },
     },
+    "dataflow-cross-project": {
+        "title": "Allow Dataflow to read from external data sources",
+        "description": (
+            "Enables the Dataflow service agent and worker SAs inside the perimeter "
+            "to read from BigQuery or GCS in an external project."
+        ),
+        "template": {
+            "egressFrom": {
+                "identities": [
+                    "serviceAccount:service-{project_number}@dataflow-service-producer-prod.iam.gserviceaccount.com",
+                    "serviceAccount:{dataflow_worker_sa}",
+                ],
+            },
+            "egressTo": {
+                "resources": ["projects/{target_project_number}"],
+                "operations": [
+                    {
+                        "serviceName": "bigquery.googleapis.com",
+                        "methodSelectors": [
+                            {"permission": "bigquery.datasets.get"},
+                            {"permission": "bigquery.tables.getData"},
+                            {"permission": "bigquery.jobs.create"},
+                        ],
+                    },
+                    {
+                        "serviceName": "storage.googleapis.com",
+                        "methodSelectors": [
+                            {"method": "google.storage.objects.get"},
+                            {"method": "google.storage.objects.list"},
+                        ],
+                    },
+                ],
+            },
+        },
+    },
+    "pubsub-cross-project-publish": {
+        "title": "Allow publishing to Pub/Sub topics in external project",
+        "description": (
+            "Enables a service account inside the perimeter to publish messages "
+            "to a Pub/Sub topic in an external project."
+        ),
+        "template": {
+            "egressFrom": {
+                "identities": ["serviceAccount:{sa_email}"],
+            },
+            "egressTo": {
+                "resources": ["projects/{target_project_number}"],
+                "operations": [
+                    {
+                        "serviceName": "pubsub.googleapis.com",
+                        "methodSelectors": [
+                            {"method": "google.pubsub.v1.Publisher.Publish"},
+                        ],
+                    }
+                ],
+            },
+        },
+    },
 }
 
 TROUBLESHOOTING_GUIDE: dict[str, dict] = {
@@ -318,6 +423,48 @@ TROUBLESHOOTING_GUIDE: dict[str, dict] = {
             "3. Check identity format — must be serviceAccount:, user:, or group:",
             "4. Verify method selectors — BigQuery uses 'permission:' while Storage uses 'method:'",
             "5. Test with a broader rule first, then narrow down",
+        ],
+    },
+    "EGRESS_VIOLATION": {
+        "meaning": (
+            "A request from inside the perimeter to a restricted service "
+            "outside the perimeter was denied by VPC-SC egress policy"
+        ),
+        "common_causes": [
+            "Service account inside perimeter accessing an external project's BigQuery/GCS/Pub/Sub",
+            "Cloud Function or Cloud Run service calling an API in a project outside the perimeter",
+            "Log sink exporting to a BigQuery dataset or GCS bucket outside the perimeter",
+            "Dataflow or Composer pipeline reading from or writing to external resources",
+        ],
+        "resolution_steps": [
+            "1. Identify the source identity and target resource from the audit log",
+            "2. Confirm the target project is outside the perimeter (or in a different perimeter)",
+            "3. Create an egress rule: specify the identity in egressFrom and the target "
+            "project/service/methods in egressTo",
+            "4. If the target is in another perimeter, you also need an ingress rule on that perimeter",
+            "5. Use dry-run mode to test the egress rule before enforcing",
+            "6. Use get_method_selectors to ensure the correct method/permission format for the service",
+        ],
+    },
+    "METHOD_NOT_ALLOWED": {
+        "meaning": (
+            "The specific API method called is not permitted by the ingress or egress rule's "
+            "method selectors — the rule exists but does not cover this operation"
+        ),
+        "common_causes": [
+            "Rule uses specific method selectors but the operation called is not in the list",
+            "Wrong selector type: using 'method' selectors for a service that requires 'permission' "
+            "selectors (or vice versa) — the rule silently fails to match",
+            "A new API method was introduced that is not covered by existing selectors",
+            "Rule allows read methods but the caller needs write methods",
+        ],
+        "resolution_steps": [
+            "1. Check the audit log for the exact method or permission that was denied",
+            "2. Use get_method_selectors to find the correct selectors for the service and access type",
+            "3. CRITICAL: verify the selector TYPE — BigQuery/Data Catalog use 'permission', "
+            "Storage/Vertex AI/Pub/Sub use 'method'. Using the wrong type causes silent failures.",
+            "4. Update the rule to include the missing method/permission",
+            "5. If unsure, temporarily use {'method': '*'} to allow all methods, then narrow down",
         ],
     },
 }

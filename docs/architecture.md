@@ -4,6 +4,8 @@
 
 The VPC-SC MCP server is a Model Context Protocol server that gives AI agents and developers tools to set up, manage, and troubleshoot Google Cloud VPC Service Controls.
 
+For the concepts behind VPC-SC, see [Concepts](concepts.md). For how to use the tools, see [MCP Server Guide](mcp-server-guide.md). For security controls, see [Security](security.md).
+
 ```
                           ┌─────────────────────────────┐
                           │        MCP Clients           │
@@ -84,7 +86,7 @@ Each module registers its tools via a `register_*_tools(mcp)` function. This kee
 |---|---|---|---|
 | `gcloud_ops.py` (464 lines) | 9 | gcloud CLI | Query and update live GCP infrastructure |
 | `terraform_gen.py` (643 lines) | 8 | terraform CLI (validate only) | Generate and validate Terraform HCL |
-| `analysis.py` (329 lines) | 8 | gcloud CLI (check_data_freshness) | Troubleshoot violations, recommend services, validate inputs, check data freshness |
+| `analysis.py` (~430 lines) | 9 | gcloud CLI (check_data_freshness) | Troubleshoot violations, recommend services, validate inputs, check data freshness, explain method selectors |
 | `rule_gen.py` (251 lines) | 6 | None | Generate ingress/egress YAML, provide patterns |
 | `diagnostic.py` (813 lines) | 2 | gcloud CLI | VPC-SC project scan with gap analysis, implementation guide |
 | `org_policy.py` (~350 lines) | 2 | gcloud CLI | Org policy compliance scan, Terraform generator |
@@ -94,8 +96,8 @@ Each module registers its tools via a `register_*_tools(mcp)` function. This kee
 
 | Module | Content | Mutability |
 |---|---|---|
-| `services.py` (289 lines) | 53 VPC-SC supported services, 5 workload recommendations, 6 services with method selectors | Static — loaded at import time |
-| `patterns.py` (296 lines) | 5 ingress patterns, 5 egress patterns, 4 troubleshooting guides | Static — loaded at import time |
+| `services.py` (~400 lines) | 69 VPC-SC supported services, 6 workload recommendations, 10 services with method selectors | Static — loaded at import time |
+| `patterns.py` (~450 lines) | 8 ingress patterns, 8 egress patterns, 6 troubleshooting guides | Static — loaded at import time |
 
 ### Security layer (`safety.py`)
 
@@ -364,14 +366,14 @@ vpcsc-mcp/
 │   │   ├── __init__.py          1 line
 │   │   ├── gcloud_ops.py     464 lines   run_gcloud(), allowlist, 9 gcloud tools
 │   │   ├── terraform_gen.py  643 lines   HCL generators, input validation, validate_terraform
-│   │   ├── analysis.py       329 lines   Troubleshoot, recommend, validate, analyse, check data freshness
+│   │   ├── analysis.py      ~430 lines   Troubleshoot, recommend, validate, analyse, explain selectors
 │   │   ├── rule_gen.py       251 lines   YAML generators, pattern library
 │   │   ├── diagnostic.py     813 lines   diagnose_project, generate_implementation_guide
 │   │   └── safety.py          75 lines   Annotation presets, sanitise_output
 │   └── data/
 │       ├── __init__.py          1 line
-│       ├── services.py       289 lines   53 services, 5 workloads, 6 method selector sets
-│       └── patterns.py       296 lines   5 ingress + 5 egress patterns, 4 troubleshooting guides
+│       ├── services.py      ~400 lines   69 services, 6 workloads, 10 method selector sets
+│       └── patterns.py      ~450 lines   8 ingress + 8 egress patterns, 6 troubleshooting guides
 ├── terraform/
 │   ├── main.tf                            Root config
 │   ├── variables.tf                       Input variables
@@ -388,6 +390,8 @@ vpcsc-mcp/
 ├── tests/
 │   └── test_server.py                     18 tests
 ├── docs/
+│   ├── concepts.md                        VPC-SC concepts and how the MCP maps to each
+│   ├── use-cases.md                       8 practical scenarios with MCP walkthroughs
 │   ├── getting-started.md                 Quick start guide (local, Cloud Shell, Cloud Run)
 │   ├── architecture.md                    This document
 │   ├── mcp-server-guide.md               Full tool reference

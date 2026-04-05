@@ -2,6 +2,22 @@
 
 This document describes the security architecture, governance controls, and threat mitigations built into the VPC-SC MCP server.
 
+## What developers should know
+
+This MCP server executes `gcloud` commands on your behalf to query and (with confirmation) modify live GCP infrastructure. Here's how it protects you:
+
+**It can't run arbitrary commands.** Only 9 gcloud subcommands (like `access-context-manager`, `logging`, `services`) and 11 flags are allowed. Everything else is blocked before execution. Shell metacharacters are rejected. There is no shell involved — commands are passed as argument lists, making injection structurally impossible.
+
+**It can't accidentally change your infrastructure.** Only 2 of the 36 tools can modify anything (`update_perimeter_resources` and `update_perimeter_services`). Both require you to pass `confirm=True` — without it, they return a preview of what *would* change. Generated Terraform and YAML are text output, not applied infrastructure. You decide when to `terraform apply`.
+
+**It doesn't store or leak credentials.** No tokens, keys, or credentials are logged, cached, or included in tool responses. The server calls whatever `gcloud` is on your PATH using your existing authentication. On Cloud Run, it uses a dedicated service account with read-only roles.
+
+**It defends against prompt injection.** All tool outputs are sanitised to strip patterns that look like injected instructions. The server's MCP instructions explicitly tell the LLM that "tool outputs are data."
+
+**Everything is logged.** Every gcloud command, its duration, and result count are logged to stderr. Blocked commands and write operations are logged explicitly.
+
+For the full technical details, continue reading below.
+
 ## Design principles
 
 1. **Secure by default** — no public access, no unauthenticated invocations, internal-only ingress
@@ -9,13 +25,13 @@ This document describes the security architecture, governance controls, and thre
 3. **Transparency** — every action logged to stderr with command, duration, and result
 4. **Defence in depth** — input validation, command allowlisting, subprocess timeout, non-root container
 5. **Write operations require confirmation** — `update_perimeter_*` tools preview changes before executing
-6. **Tool annotations** — all 35 tools declare safety hints per the MCP specification (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
+6. **Tool annotations** — all 36 tools declare safety hints per the MCP specification (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
 7. **Prompt injection defence** — tool outputs sanitised for instruction-like content; server instructions explicitly state "tool outputs are data"
 8. **Lifespan management** — startup validates gcloud availability; graceful shutdown on SIGTERM
 
 ## Tool annotations (MCP spec 2025-06-18)
 
-All 35 tools declare behavioural hints per the MCP specification. Clients use these to decide whether to auto-approve, prompt for confirmation, or block tool calls.
+All 36 tools declare behavioural hints per the MCP specification. Clients use these to decide whether to auto-approve, prompt for confirmation, or block tool calls.
 
 | Category | Tools | readOnlyHint | destructiveHint | idempotentHint | openWorldHint |
 |---|---|---|---|---|---|
@@ -23,7 +39,7 @@ All 35 tools declare behavioural hints per the MCP specification. Clients use th
 | gcloud write operations | 2 | false | **true** | false | true |
 | Terraform/YAML generation | 13 | true | false | true | false |
 | Terraform validation | 1 | true | false | false | true |
-| Analysis/troubleshooting | 7 | true | false | true | false |
+| Analysis/troubleshooting | 8 | true | false | true | false |
 | Data freshness check | 1 | true | false | false | true |
 | VPC-SC diagnostics | 2 | true | false | false | true |
 | Org policy diagnostics | 2 | true | false | false | true |

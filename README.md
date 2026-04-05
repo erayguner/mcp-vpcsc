@@ -12,20 +12,49 @@ An MCP server that helps AI agents and developers set up, manage, and troublesho
 
 Built with Python MCP SDK v1.26.0 (FastMCP). Deployable locally via stdio or remotely on Cloud Run via streamable-http.
 
+## The problem
+
+Google Cloud IAM controls *who* can access resources. But it doesn't control *where data can go*. A stolen service account key, a misconfigured permission, or a malicious insider can copy data from your BigQuery datasets, Cloud Storage buckets, or Vertex AI models to any project on the internet — even with IAM correctly configured.
+
+[VPC Service Controls](https://cloud.google.com/vpc-service-controls/docs/overview) solve this by creating security perimeters around your GCP projects and services. But setting them up is hard:
+
+- **Complex configuration** — perimeters, access levels, ingress/egress rules, method selectors, bridge perimeters, dry-run mode
+- **Cryptic errors** — `RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER` doesn't tell you *which* rule to add
+- **Silent failures** — use the wrong method selector type (`method` vs `permission`) and your rule does nothing
+- **High blast radius** — enforce a perimeter without testing and you can break production workloads instantly
+- **53+ services** — each with different method selector formats and VPC-SC support details
+
+## How this MCP helps
+
+This server gives you (or your AI agent) 36 tools that automate the hard parts:
+
+| Instead of... | The MCP does... |
+|---|---|
+| Manually checking which APIs are unprotected | `diagnose_project` scans all enabled APIs and flags `[GAP]` for unprotected ones |
+| Reading docs to figure out which services to restrict | `recommend_restricted_services` gives a tailored list per workload type |
+| Writing Terraform from scratch | `generate_perimeter_terraform` produces validated HCL with the right structure |
+| Guessing whether to use `method` or `permission` selectors | `get_method_selectors` returns the correct format for each service |
+| Decoding violation error messages | `troubleshoot_violation` explains the root cause and resolution steps |
+| Checking 31 org policies one by one | `diagnose_org_policies` scans all of them and classifies compliance status |
+
+**New to VPC-SC?** Start with [VPC-SC Concepts](docs/concepts.md) to understand the building blocks, then follow the [Getting Started](docs/getting-started.md) guide.
+
+**Already know VPC-SC?** Jump to [Use Cases](docs/use-cases.md) for practical scenarios, or the [MCP Server Guide](docs/mcp-server-guide.md) for the full tool reference.
+
 ## What it does
 
 | Category | Tools | Examples |
 |---|---|---|
 | **gcloud operations** | 9 | List perimeters, query audit logs, check dry-run status, update resources/services |
 | **Terraform generation** | 8 | Generate HCL for perimeters, access levels, bridges, ingress/egress rules, validate output |
-| **Analysis** | 8 | Troubleshoot violations, recommend services by workload, validate identities, check data freshness |
+| **Analysis** | 9 | Troubleshoot violations, recommend services by workload, validate identities, explain method selectors, check data freshness |
 | **Rule generation** | 6 | Produce YAML for gcloud, apply pre-built patterns for BigQuery/Storage/Vertex AI |
 | **VPC-SC diagnostics** | 2 | Project readiness scan with protection gap analysis, implementation guide with Terraform |
 | **Org policy diagnostics** | 2 | Org policy compliance scan (COMPLIANT/NON-COMPLIANT/NOT SET), Terraform generator |
 | **Resources** | 5 | Supported services list, workload guides, common patterns |
 | **Prompts** | 3 | Perimeter design, troubleshoot denial, migration planning |
 
-**35 tools, 5 resources, 3 prompts.** All 35 tools carry MCP `ToolAnnotations` (33 read-only, 2 destructive).
+**36 tools, 5 resources, 3 prompts.** All 36 tools carry MCP `ToolAnnotations` (34 read-only, 2 destructive).
 
 ## Security and governance
 
@@ -57,14 +86,14 @@ src/vpcsc_mcp/
     org_policy.py           Org policy compliance scan + Terraform generator
     safety.py               Tool annotations, output sanitisation, result truncation
   data/
-    services.py             53 supported services, workload recommendations, method selectors
+    services.py             69 supported services, workload recommendations, method selectors
     patterns.py             Pre-built ingress/egress patterns, troubleshooting guide
 
 terraform/                  Cloud Run deployment (Terraform >= 1.14, Google provider ~> 7.0)
   modules/mcp-server/       Reusable module: Cloud Run + SA + Artifact Registry + IAM + monitoring
 
 examples/
-  adk-agent/                Google ADK single agent (all 35 tools)
+  adk-agent/                Google ADK single agent (all 36 tools)
   adk-multi-agent/          Google ADK multi-agent (4 specialists + coordinator)
 
 scripts/
@@ -72,7 +101,7 @@ scripts/
   run-diagnostic.py         Direct diagnostic CLI (no LLM needed)
 
 tests/                      18 tests
-docs/                       7 documents (getting-started, 3 runbooks, guide, security, architecture)
+docs/                       9 documents (concepts, use-cases, getting-started, 3 runbooks, guide, security, architecture)
 Dockerfile                  Python 3.14 + gcloud, non-root
 cloudbuild.yaml             CI/CD: build, push, deploy
 ```
@@ -109,6 +138,8 @@ cloudbuild.yaml             CI/CD: build, push, deploy
 
 | Document | Content |
 |---|---|
-| [MCP Server Guide](docs/mcp-server-guide.md) | All 35 tools, validation rules, Terraform module patterns, end-to-end examples |
+| [VPC-SC Concepts](docs/concepts.md) | What VPC-SC solves, core concepts (perimeters, access levels, ingress/egress, dry-run), how the MCP maps to each |
+| [Use Cases](docs/use-cases.md) | 8 practical scenarios: project assessment, new perimeters, troubleshooting, CI/CD, partner access, compliance, migration, cross-perimeter sharing |
+| [MCP Server Guide](docs/mcp-server-guide.md) | All 36 tools, validation rules, Terraform module patterns, end-to-end examples |
 | [Security](docs/security.md) | Threat model, command allowlists, tool annotations, governance controls |
 | [Architecture](docs/architecture.md) | Component diagrams, data flows, deployment patterns, design decisions |

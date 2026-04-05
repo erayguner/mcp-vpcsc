@@ -55,6 +55,22 @@ SUPPORTED_SERVICES: dict[str, str] = {
     "videointelligence.googleapis.com": "Video Intelligence",
     "vision.googleapis.com": "Cloud Vision",
     "vpcaccess.googleapis.com": "Serverless VPC Access",
+    "workstations.googleapis.com": "Cloud Workstations",
+    "networkmanagement.googleapis.com": "Network Management",
+    "accesscontextmanager.googleapis.com": "Access Context Manager",
+    "binaryauthorization.googleapis.com": "Binary Authorization",
+    "certificatemanager.googleapis.com": "Certificate Manager",
+    "clouddeploy.googleapis.com": "Cloud Deploy",
+    "cloudscheduler.googleapis.com": "Cloud Scheduler",
+    "cloudtasks.googleapis.com": "Cloud Tasks",
+    "connectors.googleapis.com": "Integration Connectors",
+    "contactcenterinsights.googleapis.com": "Contact Center AI Insights",
+    "discoveryengine.googleapis.com": "Vertex AI Search",
+    "metastore.googleapis.com": "Dataproc Metastore",
+    "networksecurity.googleapis.com": "Network Security",
+    "privateca.googleapis.com": "Certificate Authority Service",
+    "recaptchaenterprise.googleapis.com": "reCAPTCHA Enterprise",
+    "tpu.googleapis.com": "Cloud TPU",
 }
 
 # Recommended restricted services grouped by workload type
@@ -161,6 +177,40 @@ WORKLOAD_RECOMMENDATIONS: dict[str, dict] = {
             "Reservation API manages slot capacity — restrict to prevent external reservation sharing",
             "DLP scanning jobs need both DLP and target service in perimeter",
             "Data Catalog provides metadata security — restrict alongside BigQuery",
+        ],
+    },
+    "microservices": {
+        "description": "Microservices (GKE, Cloud Run, Cloud Functions with service mesh)",
+        "required": [
+            "container.googleapis.com",
+            "run.googleapis.com",
+            "compute.googleapis.com",
+            "storage.googleapis.com",
+        ],
+        "recommended": [
+            "cloudfunctions.googleapis.com",
+            "cloudbuild.googleapis.com",
+            "artifactregistry.googleapis.com",
+            "binaryauthorization.googleapis.com",
+            "secretmanager.googleapis.com",
+            "cloudkms.googleapis.com",
+            "pubsub.googleapis.com",
+            "redis.googleapis.com",
+            "sqladmin.googleapis.com",
+            "cloudtasks.googleapis.com",
+            "cloudscheduler.googleapis.com",
+            "logging.googleapis.com",
+            "monitoring.googleapis.com",
+            "vpcaccess.googleapis.com",
+            "dns.googleapis.com",
+        ],
+        "notes": [
+            "GKE clusters must use VPC-native (alias IP) mode for VPC-SC compatibility",
+            "Cloud Run and Cloud Functions need Serverless VPC Access connectors for private networking",
+            "Binary Authorization verifies container images before deployment — restrict alongside GKE",
+            "Cloud Build needs ingress rules to deploy into perimeter projects",
+            "Service-to-service calls within the perimeter are unrestricted for restricted services",
+            "Use Cloud Tasks and Cloud Scheduler for async communication instead of direct HTTP where possible",
         ],
     },
     "healthcare": {
@@ -283,6 +333,59 @@ SERVICE_METHOD_SELECTORS: dict[str, dict[str, list[dict[str, str]]]] = {
         "subscribe": [
             {"method": "google.pubsub.v1.Subscriber.Pull"},
             {"method": "google.pubsub.v1.Subscriber.StreamingPull"},
+        ],
+        "all": [{"method": "*"}],
+    },
+    "compute.googleapis.com": {
+        "read": [
+            {"method": "compute.instances.get"},
+            {"method": "compute.instances.list"},
+            {"method": "compute.networks.get"},
+            {"method": "compute.subnetworks.get"},
+        ],
+        "write": [
+            {"method": "compute.instances.insert"},
+            {"method": "compute.instances.delete"},
+            {"method": "compute.instances.start"},
+            {"method": "compute.instances.stop"},
+        ],
+        "all": [{"method": "*"}],
+    },
+    "container.googleapis.com": {
+        "read": [
+            {"method": "google.container.v1.ClusterManager.GetCluster"},
+            {"method": "google.container.v1.ClusterManager.ListClusters"},
+            {"method": "google.container.v1.ClusterManager.GetNodePool"},
+        ],
+        "write": [
+            {"method": "google.container.v1.ClusterManager.CreateCluster"},
+            {"method": "google.container.v1.ClusterManager.UpdateCluster"},
+            {"method": "google.container.v1.ClusterManager.DeleteCluster"},
+        ],
+        "all": [{"method": "*"}],
+    },
+    "run.googleapis.com": {
+        "invoke": [
+            {"method": "google.cloud.run.v2.Services.InvokeService"},
+        ],
+        "manage": [
+            {"method": "google.cloud.run.v2.Services.CreateService"},
+            {"method": "google.cloud.run.v2.Services.UpdateService"},
+            {"method": "google.cloud.run.v2.Services.DeleteService"},
+            {"method": "google.cloud.run.v2.Revisions.GetRevision"},
+        ],
+        "all": [{"method": "*"}],
+    },
+    "sqladmin.googleapis.com": {
+        "read": [
+            {"method": "sql.instances.get"},
+            {"method": "sql.instances.list"},
+            {"method": "sql.databases.list"},
+        ],
+        "write": [
+            {"method": "sql.instances.create"},
+            {"method": "sql.instances.update"},
+            {"method": "sql.instances.delete"},
         ],
         "all": [{"method": "*"}],
     },

@@ -2,6 +2,11 @@
 
 A Model Context Protocol (MCP) server that helps AI agents and developers set up, manage, and troubleshoot Google Cloud VPC Service Controls. Built with the Python MCP SDK v1.26.0 (FastMCP).
 
+**Prerequisites:**
+- For background on VPC-SC concepts, see [VPC-SC Concepts](concepts.md)
+- For installation and setup, see [Getting Started](getting-started.md)
+- For practical walkthroughs, see [Use Cases](use-cases.md)
+
 ---
 
 ## Table of Contents
@@ -16,6 +21,7 @@ A Model Context Protocol (MCP) server that helps AI agents and developers set up
   - [Analysis and troubleshooting](#3-analysis-and-troubleshooting)
   - [Rule generation and patterns](#4-rule-generation-and-patterns)
   - [Diagnostics and implementation guides](#5-diagnostics-and-implementation-guides)
+  - [Organisation policy compliance](#6-organisation-policy-compliance)
 - [Resources and prompts](#resources-and-prompts)
 - [Validation rules and constraints](#validation-rules-and-constraints)
 - [Terraform examples with the perimeter module](#terraform-examples-with-the-ons-perimeter-module)
@@ -31,18 +37,21 @@ A Model Context Protocol (MCP) server that helps AI agents and developers set up
 
 ## What this server does
 
-| Capability | Description |
-|---|---|
-| **Query live infrastructure** | Lists perimeters, access levels, policies, and audit-log violations by calling `gcloud` on your behalf |
-| **Generate Terraform HCL** | Produces ready-to-paste HCL blocks for perimeters, access levels, bridges, and ingress/egress policies |
-| **Generate gcloud YAML** | Creates YAML files compatible with `--set-ingress-policies` / `--set-egress-policies` flags |
-| **Troubleshoot violations** | Maps VPC-SC violation codes to root causes, common pitfalls, and step-by-step resolution |
-| **Recommend services** | Suggests which GCP APIs to restrict based on workload type (AI/ML, data analytics, web app, healthcare, data warehouse) |
-| **Validate inputs** | Checks identity format, service support, and perimeter design before you apply anything |
-| **Provide patterns** | Supplies pre-built ingress/egress rule templates for common scenarios (BigQuery cross-project reads, Cloud Build deploys, Vertex AI predictions, etc.) |
-| **Diagnose projects** | Scans the authenticated project for VPC-SC readiness: enabled APIs, org, perimeters, SAs, violations |
-| **Generate implementation guides** | Produces 7-phase Terraform guides with both raw HCL and The module calls |
-| **Health check** | `/health` endpoint for Cloud Run probes (HTTP transports only) |
+This server automates the most time-consuming and error-prone parts of working with VPC Service Controls. It connects to your authenticated `gcloud` CLI and provides tools across the full VPC-SC lifecycle — from initial assessment to ongoing monitoring.
+
+| Capability | Description | When you need it |
+|---|---|---|
+| **Query live infrastructure** | Lists perimeters, access levels, policies, and audit-log violations by calling `gcloud` on your behalf | Understanding your current VPC-SC state |
+| **Generate Terraform HCL** | Produces ready-to-paste HCL blocks for perimeters, access levels, bridges, and ingress/egress policies | Creating or modifying VPC-SC infrastructure |
+| **Generate gcloud YAML** | Creates YAML files compatible with `--set-ingress-policies` / `--set-egress-policies` flags | Quick rule changes via gcloud (without Terraform) |
+| **Troubleshoot violations** | Maps VPC-SC violation codes to root causes, common pitfalls, and step-by-step resolution | Fixing access denials after enforcement |
+| **Recommend services** | Suggests which GCP APIs to restrict based on workload type (AI/ML, data analytics, web app, healthcare, data warehouse) | Deciding what to protect in a new perimeter |
+| **Validate inputs** | Checks identity format, service support, and perimeter design before you apply anything | Catching errors before `terraform apply` |
+| **Provide patterns** | Supplies pre-built ingress/egress rule templates for common scenarios (BigQuery cross-project reads, Cloud Build deploys, Vertex AI predictions, etc.) | Writing rules without memorising method selector formats |
+| **Diagnose projects** | Scans the authenticated project for VPC-SC readiness: enabled APIs, org, perimeters, SAs, violations | Assessing a new or inherited project |
+| **Generate implementation guides** | Produces 7-phase Terraform guides with both raw HCL and module calls | Planning a full perimeter rollout |
+| **Check org policy compliance** | Scans 31 org policies across 11 categories, generates Terraform remediation | Preparing for security audits |
+| **Health check** | `/health` endpoint for Cloud Run probes (HTTP transports only) | Production deployment monitoring |
 
 ## What this server does NOT do
 
@@ -50,7 +59,7 @@ A Model Context Protocol (MCP) server that helps AI agents and developers set up
 - **It does not manage IAM.** Identity bindings, role grants, and service account creation are out of scope.
 - **It does not replace `terraform plan`.** Generated HCL is a starting point. Always run `terraform validate` and `terraform plan` before applying.
 - **It does not store credentials.** It calls whichever `gcloud` is on your PATH using your active authentication. No tokens are cached or transmitted.
-- **It does not guarantee completeness.** The supported-services list covers ~53 commonly used APIs. Newly added GCP services may not be included yet.
+- **It does not guarantee completeness.** The supported-services list covers ~69 commonly used APIs. Newly added GCP services may not be included yet.
 
 ---
 
@@ -97,7 +106,7 @@ Create or edit `~/.gemini/settings.json`:
 }
 ```
 
-Start `gemini`. The 35 tools, 5 resources, and 3 prompts are available automatically.
+Start `gemini`. The 36 tools, 5 resources, and 3 prompts are available automatically.
 
 ---
 
@@ -161,13 +170,14 @@ These tools produce HCL strings. They do **not** write files or call Terraform. 
 | `get_method_selectors` | Get pre-defined method/permission selectors for a service and access type |
 | `validate_identity_format` | Check that identity strings have the required prefix |
 | `analyze_perimeter_design` | Review a planned perimeter and flag issues |
+| `explain_method_selector_types` | Explain the method vs permission selector distinction and which services use which type |
 | `check_data_freshness` | Compare built-in data against live project APIs, report server version and data counts |
 
 **Behaviour notes:**
 
 - `check_data_freshness` compares the server's built-in VPC-SC services list against APIs enabled in your project, flags potentially missing services, and reports server version, data counts, and update instructions.
-- `troubleshoot_violation` recognises four violation codes: `RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER`, `NO_MATCHING_ACCESS_LEVEL`, `SERVICE_NOT_ALLOWED_FROM_VPC`, and `ACCESS_DENIED_GENERIC`.
-- `recommend_restricted_services` supports five workload types: `ai-ml`, `data-analytics`, `web-application`, `data-warehouse`, `healthcare`.
+- `troubleshoot_violation` recognises six violation codes: `RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER`, `NO_MATCHING_ACCESS_LEVEL`, `SERVICE_NOT_ALLOWED_FROM_VPC`, `ACCESS_DENIED_GENERIC`, `EGRESS_VIOLATION`, and `METHOD_NOT_ALLOWED`.
+- `recommend_restricted_services` supports six workload types: `ai-ml`, `data-analytics`, `web-application`, `data-warehouse`, `healthcare`, `microservices`.
 - `get_method_selectors` returns both the human-readable list and a JSON array you can pass directly into the Terraform or YAML generators.
 
 ### 4. Rule generation and patterns
@@ -190,6 +200,8 @@ These tools produce HCL strings. They do **not** write files or call Terraform. 
 | `vertex-ai-prediction` | External SA calls Vertex AI prediction endpoints |
 | `cloud-build-deploy` | Cloud Build SA deploys into the perimeter |
 | `devops-console-access` | DevOps group accesses resources via console from corporate network |
+| `gke-workload-identity` | GKE workload identity SA from external cluster accesses resources |
+| `pubsub-cross-project-subscribe` | External SA subscribes to Pub/Sub topics inside perimeter |
 
 **Pre-built egress patterns:**
 
@@ -200,6 +212,8 @@ These tools produce HCL strings. They do **not** write files or call Terraform. 
 | `cloud-functions-deploy` | Cloud Functions SA stores source in external GCS |
 | `vertex-ai-training-output` | Vertex AI writes model artifacts to external GCS |
 | `logging-export` | Logging SA exports to external BigQuery/GCS |
+| `dataflow-cross-project` | Dataflow reads from external BigQuery/GCS sources |
+| `pubsub-cross-project-publish` | SA inside perimeter publishes to external Pub/Sub topic |
 
 **Behaviour notes:**
 
@@ -217,7 +231,7 @@ These tools produce HCL strings. They do **not** write files or call Terraform. 
 **`diagnose_project` runs 10 steps:**
 
 1. Resolve active project, account, project number, parent org
-2. Scan enabled APIs against 53 known VPC-SC supported services
+2. Scan enabled APIs against 69 known VPC-SC supported services
 3. Flag missing critical APIs (Access Context Manager, Cloud KMS, Secret Manager)
 4. Check organisation and access policy
 5. List existing perimeters — flag which perimeter contains this project
@@ -347,7 +361,7 @@ ORG POLICY COMPLIANCE SUMMARY
 
 | URI | Content |
 |---|---|
-| `vpcsc://services/supported` | Full list of 53 VPC-SC supported services |
+| `vpcsc://services/supported` | Full list of 69 VPC-SC supported services |
 | `vpcsc://workloads/{workload_type}` | Workload recommendations (ai-ml, data-analytics, etc.) |
 | `vpcsc://patterns/ingress` | All ingress patterns as JSON |
 | `vpcsc://patterns/egress` | All egress patterns as JSON |
@@ -867,11 +881,11 @@ The perimeter module has a difference between enforced and dry-run egress polici
 
 ### Method selector coverage
 
-The MCP server includes pre-defined method selectors for 6 services: BigQuery, Cloud Storage, Vertex AI, Cloud Logging, Secret Manager, and Pub/Sub. For other services, use `{"method": "*"}` to allow all methods, or consult the [GCP documentation](https://cloud.google.com/vpc-service-controls/docs/supported-products) for specific method names.
+The MCP server includes pre-defined method selectors for 10 services: BigQuery, Cloud Storage, Vertex AI, Cloud Logging, Secret Manager, Pub/Sub, Compute Engine, GKE, Cloud Run, and Cloud SQL. For other services, use `{"method": "*"}` to allow all methods, or consult the [GCP documentation](https://cloud.google.com/vpc-service-controls/docs/supported-products) for specific method names. Use the `explain_method_selector_types` tool to understand the method vs permission distinction.
 
 ### Supported services list
 
-The built-in list covers 53 commonly used services. GCP regularly adds VPC-SC support for new services. If a service is not found, the `check_service_support` tool will suggest checking the latest documentation.
+The built-in list covers 69 commonly used services. GCP regularly adds VPC-SC support for new services. If a service is not found, the `check_service_support` tool will suggest checking the latest documentation.
 
 ### gcloud authentication
 
@@ -900,3 +914,18 @@ The `check_vpc_sc_violations` tool calls `gcloud logging read`, which is subject
 ### Health check
 
 The `/health` endpoint is available on HTTP transports only (streamable-http, SSE). It is not available on stdio. Cloud Run probes use this endpoint.
+
+---
+
+## Further reading
+
+| Topic | Document |
+|---|---|
+| VPC-SC concepts and how the MCP maps to each | [Concepts](concepts.md) |
+| Practical walkthroughs of common scenarios | [Use Cases](use-cases.md) |
+| Security controls and threat model | [Security](security.md) |
+| Architecture and component design | [Architecture](architecture.md) |
+| Google Cloud VPC-SC documentation | [Service perimeters](https://docs.cloud.google.com/vpc-service-controls/docs/service-perimeters) |
+| Ingress and egress rules reference | [Ingress/egress rules](https://docs.cloud.google.com/vpc-service-controls/docs/ingress-egress-rules) |
+| Supported services with method restrictions | [Method restrictions](https://docs.cloud.google.com/vpc-service-controls/docs/supported-method-restrictions) |
+| Access level design best practices | [Access level design](https://docs.cloud.google.com/vpc-service-controls/docs/access-level-design) |

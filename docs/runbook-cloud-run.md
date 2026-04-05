@@ -1,5 +1,7 @@
 # Runbook: Cloud Run Deployment
 
+For a quick-start version, see [Getting Started — Cloud Run setup](getting-started.md#cloud-run-setup). For security details, see [Security](security.md#cloud-run-deployment-security).
+
 ## Prerequisites
 
 - `gcloud` CLI authenticated with a project that has billing enabled
@@ -138,7 +140,7 @@ adk deploy cloud_run \
 | Transport | Streamable HTTP (stateless, scale-to-zero) |
 | Health probes | `/health` (startup + liveness) |
 | Network binding | `0.0.0.0` (detected via `K_SERVICE` env var) |
-| Tool annotations | 35/35 tools annotated (33 readOnly, 2 destructive) |
+| Tool annotations | 35/36 tools annotated (34 readOnly, 2 destructive) |
 | Output sanitisation | Strips prompt-injection patterns |
 | Command allowlist | 9 subcommands, 11 flags |
 | Subprocess timeout | 120s |

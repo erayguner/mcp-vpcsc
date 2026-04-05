@@ -2,6 +2,8 @@
 
 Run the VPC-SC MCP server entirely within Google Cloud Shell using Vertex AI Gemini. No API keys, no local installation needed.
 
+For a quick-start version, see [Getting Started — Cloud Shell setup](getting-started.md#cloud-shell-setup). For VPC-SC background, see [Concepts](concepts.md).
+
 ## Prerequisites
 
 - A GCP project with billing enabled
@@ -110,7 +112,7 @@ GOOGLE_CLOUD_LOCATION=europe-west2
 
 10 steps:
 1. Resolve project and metadata
-2. Scan 53 VPC-SC supported APIs
+2. Scan 69 VPC-SC supported APIs
 3. Check organisation and access policy
 4. List perimeters (flag which contain this project)
 5. List access levels

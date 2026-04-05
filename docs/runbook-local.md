@@ -1,10 +1,12 @@
 # Runbook: Local Setup
 
+For a quick-start version, see [Getting Started — Local setup](getting-started.md#local-setup). For VPC-SC background, see [Concepts](concepts.md).
+
 ## Prerequisites
 
 - Python 3.10+
 - `gcloud` CLI authenticated (`gcloud auth login`)
-- IAM: `roles/accesscontextmanager.policyReader` + `roles/logging.viewer` on relevant projects
+- IAM: `roles/accesscontextmanager.policyReader` + `roles/logging.viewer` on relevant projects (see [Getting Started — IAM permissions](getting-started.md#iam-permissions-needed) for the full list)
 
 ## Install
 
