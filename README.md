@@ -22,11 +22,11 @@ Google Cloud IAM controls *who* can access resources. But it doesn't control *wh
 - **Cryptic errors** — `RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER` doesn't tell you *which* rule to add
 - **Silent failures** — use the wrong method selector type (`method` vs `permission`) and your rule does nothing
 - **High blast radius** — enforce a perimeter without testing and you can break production workloads instantly
-- **53+ services** — each with different method selector formats and VPC-SC support details
+- **147 services** — each with different method selector formats and VPC-SC support details
 
 ## How this MCP helps
 
-This server gives you (or your AI agent) 36 tools that automate the hard parts:
+This server gives you (or your AI agent) 40 tools that automate the hard parts:
 
 | Instead of... | The MCP does... |
 |---|---|
@@ -54,7 +54,7 @@ This server gives you (or your AI agent) 36 tools that automate the hard parts:
 | **Resources** | 5 | Supported services list, workload guides, common patterns |
 | **Prompts** | 3 | Perimeter design, troubleshoot denial, migration planning |
 
-**36 tools, 5 resources, 3 prompts.** All 36 tools carry MCP `ToolAnnotations` (34 read-only, 2 destructive).
+**40 tools, 5 resources, 3 prompts.** All 40 tools carry MCP `ToolAnnotations` (38 read-only, 2 destructive).
 
 ## Security and governance
 
@@ -86,14 +86,14 @@ src/vpcsc_mcp/
     org_policy.py           Org policy compliance scan + Terraform generator
     safety.py               Tool annotations, output sanitisation, result truncation
   data/
-    services.py             69 supported services, workload recommendations, method selectors
+    services.py             147 supported services, 7 workload recommendations, method selectors
     patterns.py             Pre-built ingress/egress patterns, troubleshooting guide
 
 terraform/                  Cloud Run deployment (Terraform >= 1.14, Google provider ~> 7.0)
   modules/mcp-server/       Reusable module: Cloud Run + SA + Artifact Registry + IAM + monitoring
 
 examples/
-  adk-agent/                Google ADK single agent (all 36 tools)
+  adk-agent/                Google ADK single agent (all 40 tools)
   adk-multi-agent/          Google ADK multi-agent (4 specialists + coordinator)
 
 scripts/
@@ -140,6 +140,6 @@ cloudbuild.yaml             CI/CD: build, push, deploy
 |---|---|
 | [VPC-SC Concepts](docs/concepts.md) | What VPC-SC solves, core concepts (perimeters, access levels, ingress/egress, dry-run), how the MCP maps to each |
 | [Use Cases](docs/use-cases.md) | 8 practical scenarios: project assessment, new perimeters, troubleshooting, CI/CD, partner access, compliance, migration, cross-perimeter sharing |
-| [MCP Server Guide](docs/mcp-server-guide.md) | All 36 tools, validation rules, Terraform module patterns, end-to-end examples |
+| [MCP Server Guide](docs/mcp-server-guide.md) | All 40 tools, validation rules, Terraform module patterns, end-to-end examples |
 | [Security](docs/security.md) | Threat model, command allowlists, tool annotations, governance controls |
 | [Architecture](docs/architecture.md) | Component diagrams, data flows, deployment patterns, design decisions |

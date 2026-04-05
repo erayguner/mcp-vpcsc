@@ -106,7 +106,7 @@ Create or edit `~/.gemini/settings.json`:
 }
 ```
 
-Start `gemini`. The 36 tools, 5 resources, and 3 prompts are available automatically.
+Start `gemini`. The 40 tools, 5 resources, and 3 prompts are available automatically.
 
 ---
 

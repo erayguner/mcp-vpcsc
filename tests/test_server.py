@@ -35,7 +35,10 @@ class TestSupportedServices:
 
 class TestWorkloadRecommendations:
     def test_all_workload_types_exist(self):
-        expected = {"ai-ml", "data-analytics", "web-application", "data-warehouse", "healthcare", "microservices"}
+        expected = {
+            "ai-ml", "data-analytics", "web-application",
+            "data-warehouse", "healthcare", "microservices", "gen-ai",
+        }
         assert set(WORKLOAD_RECOMMENDATIONS.keys()) == expected
 
     def test_workload_has_required_fields(self):

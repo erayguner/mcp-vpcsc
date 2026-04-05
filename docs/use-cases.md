@@ -441,4 +441,4 @@ If you only need one-way access (e.g., Team A reads Team B's data), use egress r
 
 - [Getting Started](getting-started.md) — install and connect the MCP server
 - [Concepts](concepts.md) — understand VPC-SC terminology and how the MCP maps to it
-- [MCP Server Guide](mcp-server-guide.md) — full reference for all 36 tools, 5 resources, and 3 prompts
+- [MCP Server Guide](mcp-server-guide.md) — full reference for all 40 tools, 5 resources, and 3 prompts

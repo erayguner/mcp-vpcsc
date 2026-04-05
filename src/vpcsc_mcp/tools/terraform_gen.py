@@ -85,6 +85,7 @@ def register_terraform_tools(mcp) -> None:
         project_numbers: list[str],
         restricted_services: list[str],
         title: str | None = None,
+        description: str | None = None,
         dry_run: bool = True,
         access_level_names: list[str] | None = None,
     ) -> str:
@@ -96,6 +97,7 @@ def register_terraform_tools(mcp) -> None:
             project_numbers: List of project numbers to include (just numbers, no 'projects/' prefix).
             restricted_services: List of GCP API services to restrict (e.g. 'storage.googleapis.com').
             title: Human-readable title. Defaults to name.
+            description: Optional description of the perimeter and its purpose.
             dry_run: Whether to use dry-run mode (spec block). Default True.
             access_level_names: Optional list of access level names to allow.
         """
@@ -131,11 +133,15 @@ def register_terraform_tools(mcp) -> None:
         block_type = "spec" if dry_run else "status"
         dry_run_line = '\n  use_explicit_dry_run_spec = true' if dry_run else ""
 
+        desc_line = ""
+        if description:
+            desc_line = f'\n  description    = "{_sanitise_hcl_string(description)}"'
+
         return textwrap.dedent(f"""\
         resource "google_access_context_manager_service_perimeter" "{name}" {{
           parent         = "accessPolicies/{policy_id}"
           name           = "accessPolicies/{policy_id}/servicePerimeters/{name}"
-          title          = "{title}"
+          title          = "{title}"{desc_line}
           perimeter_type = "PERIMETER_TYPE_REGULAR"{dry_run_line}
 
           {block_type} {{
@@ -238,12 +244,14 @@ def register_terraform_tools(mcp) -> None:
     @mcp.tool(annotations=GENERATE)
     def generate_ingress_policy_terraform(
         service_name: str,
-        method_selectors: list[dict[str, str]],
+        method_selectors: list[dict[str, str]] | None = None,
         identity_type: str | None = None,
         identities: list[str] | None = None,
         source_project_numbers: list[str] | None = None,
+        source_vpc_networks: list[str] | None = None,
         source_access_level: str | None = None,
         target_resources: list[str] | None = None,
+        roles: list[str] | None = None,
         title: str = "Ingress Rule",
     ) -> str:
         """Generate Terraform HCL for a VPC-SC ingress policy block.
@@ -251,12 +259,17 @@ def register_terraform_tools(mcp) -> None:
         Args:
             service_name: The GCP service (e.g. 'bigquery.googleapis.com').
             method_selectors: List of {'method': '...'} or {'permission': '...'} dicts.
+                Mutually exclusive with roles.
             identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT',
                 'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
             identities: Explicit identity list (e.g. 'serviceAccount:sa@project.iam.gserviceaccount.com').
             source_project_numbers: Source project numbers (without 'projects/' prefix).
+            source_vpc_networks: Source VPC network resource names. Format:
+                '//compute.googleapis.com/projects/{PROJECT_ID}/global/networks/{NAME}'.
             source_access_level: Full access level resource name.
             target_resources: Target resources (default ['*']).
+            roles: IAM roles to allow (e.g. 'roles/bigquery.admin'). Alternative to
+                method_selectors — simpler when granting broad access.
             title: Title for the ingress policy.
         """
         target_resources = target_resources or ["*"]
@@ -266,7 +279,9 @@ def register_terraform_tools(mcp) -> None:
         if identity_type:
             from_parts.append(f'      identity_type = "{identity_type}"')
         elif identities:
-            from_parts.append(f"      identities = {_hcl_list(identities, indent=6)}")
+            from_parts.append(
+                f"      identities = {_hcl_list(identities, indent=6)}"
+            )
         else:
             from_parts.append('      identity_type = "ANY_IDENTITY"')
 
@@ -274,34 +289,55 @@ def register_terraform_tools(mcp) -> None:
         if source_project_numbers:
             for pn in source_project_numbers:
                 sources.append(f'        resource = "projects/{pn}"')
+        if source_vpc_networks:
+            for vpc in source_vpc_networks:
+                sources.append(f'        resource = "{vpc}"')
         if source_access_level:
             sources.append(f'        access_level = "{source_access_level}"')
 
         sources_block = ""
         if sources:
             source_entries = "\n      }\n      sources {\n".join(sources)
-            sources_block = f"\n      sources {{\n{source_entries}\n      }}"
+            sources_block = (
+                f"\n      sources {{\n{source_entries}\n      }}"
+            )
 
         from_block = "\n".join(from_parts)
 
-        # Build method selectors
-        method_lines = []
-        for ms in method_selectors:
-            if "method" in ms:
-                method_lines.append(
-                    f'        method_selectors {{\n'
-                    f'          method = "{ms["method"]}"\n'
-                    f'        }}'
-                )
-            elif "permission" in ms:
-                method_lines.append(
-                    f'        method_selectors {{\n'
-                    f'          permission = "{ms["permission"]}"\n'
-                    f'        }}'
-                )
-        methods_hcl = "\n".join(method_lines)
-
+        # Build ingress_to
         targets_hcl = _hcl_list(target_resources, indent=6)
+        to_parts = [f"        resources = {targets_hcl}"]
+
+        # roles-based access (alternative to method_selectors)
+        if roles:
+            roles_hcl = _hcl_list(roles, indent=8)
+            to_parts.append(f"        roles = {roles_hcl}")
+        else:
+            # method_selectors-based access
+            selectors = method_selectors or [{"method": "*"}]
+            method_lines = []
+            for ms in selectors:
+                if "method" in ms:
+                    method_lines.append(
+                        f'          method_selectors {{\n'
+                        f'            method = "{ms["method"]}"\n'
+                        f'          }}'
+                    )
+                elif "permission" in ms:
+                    method_lines.append(
+                        f'          method_selectors {{\n'
+                        f'            permission = "{ms["permission"]}"\n'
+                        f'          }}'
+                    )
+            methods_hcl = "\n".join(method_lines)
+            to_parts.append(
+                f'        operations {{\n'
+                f'          service_name = "{service_name}"\n'
+                f'{methods_hcl}\n'
+                f'        }}'
+            )
+
+        to_block = "\n".join(to_parts)
 
         return textwrap.dedent(f"""\
         # {title}
@@ -311,11 +347,7 @@ def register_terraform_tools(mcp) -> None:
         {from_block}{sources_block}
           }}
           ingress_to {{
-            resources = {targets_hcl}
-            operations {{
-              service_name = "{service_name}"
-        {methods_hcl}
-            }}
+        {to_block}
           }}
         }}
         """)
@@ -323,11 +355,15 @@ def register_terraform_tools(mcp) -> None:
     @mcp.tool(annotations=GENERATE)
     def generate_egress_policy_terraform(
         service_name: str,
-        method_selectors: list[dict[str, str]],
+        method_selectors: list[dict[str, str]] | None = None,
         identity_type: str | None = None,
         identities: list[str] | None = None,
         target_project_numbers: list[str] | None = None,
         target_resources: list[str] | None = None,
+        external_resources: list[str] | None = None,
+        source_project_numbers: list[str] | None = None,
+        source_access_level: str | None = None,
+        roles: list[str] | None = None,
         title: str = "Egress Rule",
     ) -> str:
         """Generate Terraform HCL for a VPC-SC egress policy block.
@@ -335,11 +371,20 @@ def register_terraform_tools(mcp) -> None:
         Args:
             service_name: The GCP service (e.g. 'storage.googleapis.com').
             method_selectors: List of {'method': '...'} or {'permission': '...'} dicts.
+                Mutually exclusive with roles.
             identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT',
                 'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
             identities: Explicit identity list.
             target_project_numbers: Target project numbers (without 'projects/' prefix).
             target_resources: Target resources (overrides target_project_numbers if set).
+            external_resources: Non-GCP target resources (e.g. 's3://bucket/path').
+            source_project_numbers: Source project numbers inside the perimeter to
+                restrict which projects can use this egress rule. Requires
+                source_restriction to be set automatically.
+            source_access_level: Access level restricting which sources inside the
+                perimeter can use this egress rule.
+            roles: IAM roles to allow (e.g. 'roles/bigquery.admin'). Alternative to
+                method_selectors — simpler when granting broad access.
             title: Title for the egress policy.
         """
         if target_resources:
@@ -354,29 +399,72 @@ def register_terraform_tools(mcp) -> None:
         if identity_type:
             from_parts.append(f'      identity_type = "{identity_type}"')
         elif identities:
-            from_parts.append(f"      identities = {_hcl_list(identities, indent=6)}")
+            from_parts.append(
+                f"      identities = {_hcl_list(identities, indent=6)}"
+            )
         else:
             from_parts.append('      identity_type = "ANY_IDENTITY"')
+
+        # egress_from.sources + source_restriction (provider >= 5.x)
+        if source_project_numbers or source_access_level:
+            from_parts.append(
+                '      source_restriction = "SOURCE_RESTRICTION_ENABLED"'
+            )
+            if source_project_numbers:
+                for pn in source_project_numbers:
+                    from_parts.append(
+                        f"      sources {{\n"
+                        f'        resource = "projects/{pn}"\n'
+                        f"      }}"
+                    )
+            if source_access_level:
+                from_parts.append(
+                    f"      sources {{\n"
+                    f'        access_level = "{source_access_level}"\n'
+                    f"      }}"
+                )
+
         from_block = "\n".join(from_parts)
 
-        # Build method selectors
-        method_lines = []
-        for ms in method_selectors:
-            if "method" in ms:
-                method_lines.append(
-                    f'        method_selectors {{\n'
-                    f'          method = "{ms["method"]}"\n'
-                    f'        }}'
-                )
-            elif "permission" in ms:
-                method_lines.append(
-                    f'        method_selectors {{\n'
-                    f'          permission = "{ms["permission"]}"\n'
-                    f'        }}'
-                )
-        methods_hcl = "\n".join(method_lines)
-
+        # Build egress_to
         targets_hcl = _hcl_list(targets, indent=6)
+        to_parts = [f"        resources = {targets_hcl}"]
+
+        # external_resources (cross-cloud, e.g. s3://)
+        if external_resources:
+            ext_hcl = _hcl_list(external_resources, indent=8)
+            to_parts.append(f"        external_resources = {ext_hcl}")
+
+        # roles-based access (alternative to method_selectors)
+        if roles:
+            roles_hcl = _hcl_list(roles, indent=8)
+            to_parts.append(f"        roles = {roles_hcl}")
+        else:
+            # method_selectors-based access
+            selectors = method_selectors or [{"method": "*"}]
+            method_lines = []
+            for ms in selectors:
+                if "method" in ms:
+                    method_lines.append(
+                        f'          method_selectors {{\n'
+                        f'            method = "{ms["method"]}"\n'
+                        f'          }}'
+                    )
+                elif "permission" in ms:
+                    method_lines.append(
+                        f'          method_selectors {{\n'
+                        f'            permission = "{ms["permission"]}"\n'
+                        f'          }}'
+                    )
+            methods_hcl = "\n".join(method_lines)
+            to_parts.append(
+                f'        operations {{\n'
+                f'          service_name = "{service_name}"\n'
+                f'{methods_hcl}\n'
+                f'        }}'
+            )
+
+        to_block = "\n".join(to_parts)
 
         return textwrap.dedent(f"""\
         # {title}
@@ -386,11 +474,7 @@ def register_terraform_tools(mcp) -> None:
         {from_block}
           }}
           egress_to {{
-            resources = {targets_hcl}
-            operations {{
-              service_name = "{service_name}"
-        {methods_hcl}
-            }}
+        {to_block}
           }}
         }}
         """)
@@ -416,6 +500,224 @@ def register_terraform_tools(mcp) -> None:
         vpc_accessible_services {{
           enable_restriction = true
           allowed_services   = {services_hcl}
+        }}
+        """)
+
+    @mcp.tool(annotations=GENERATE)
+    def generate_standalone_ingress_policy_terraform(
+        perimeter_resource_name: str,
+        service_name: str,
+        method_selectors: list[dict[str, str]] | None = None,
+        identity_type: str | None = None,
+        identities: list[str] | None = None,
+        source_access_level: str | None = None,
+        source_project_numbers: list[str] | None = None,
+        roles: list[str] | None = None,
+        title: str = "Ingress Rule",
+    ) -> str:
+        """Generate a standalone ingress policy Terraform resource.
+
+        Uses google_access_context_manager_service_perimeter_ingress_policy,
+        which manages a single ingress rule independently of the perimeter
+        resource. This is preferred over inline ingress_policies blocks for
+        easier lifecycle management.
+
+        Note: When using standalone policies, add a lifecycle ignore_changes
+        block to the perimeter resource for status[0].ingress_policies.
+
+        Args:
+            perimeter_resource_name: Full perimeter resource name
+                (e.g. 'accessPolicies/123/servicePerimeters/my_perimeter').
+            service_name: The GCP service (e.g. 'bigquery.googleapis.com').
+            method_selectors: List of {'method': '...'} or {'permission': '...'}
+                dicts. Mutually exclusive with roles.
+            identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT',
+                'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
+            identities: Explicit identity list.
+            source_access_level: Full access level resource name.
+            source_project_numbers: Source project numbers.
+            roles: IAM roles to allow. Alternative to method_selectors.
+            title: Title for the ingress policy.
+        """
+        safe_title = title.lower().replace(" ", "_").replace("-", "_")
+        safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", safe_title)
+
+        from_lines = []
+        if identity_type:
+            from_lines.append(f'    identity_type = "{identity_type}"')
+        elif identities:
+            from_lines.append(
+                f"    identities = {_hcl_list(identities, indent=4)}"
+            )
+        if source_access_level:
+            from_lines.append(
+                f"    sources {{\n"
+                f'      access_level = "{source_access_level}"\n'
+                f"    }}"
+            )
+        if source_project_numbers:
+            for pn in source_project_numbers:
+                from_lines.append(
+                    f"    sources {{\n"
+                    f'      resource = "projects/{pn}"\n'
+                    f"    }}"
+                )
+        from_block = "\n".join(from_lines)
+
+        # Build ingress_to
+        to_lines = ['    resources = ["*"]']
+        if roles:
+            roles_hcl = _hcl_list(roles, indent=4)
+            to_lines.append(f"    roles = {roles_hcl}")
+        else:
+            selectors = method_selectors or [{"method": "*"}]
+            ms_lines = []
+            for ms in selectors:
+                if "method" in ms:
+                    ms_lines.append(
+                        f'      method_selectors {{\n'
+                        f'        method = "{ms["method"]}"\n'
+                        f'      }}'
+                    )
+                elif "permission" in ms:
+                    ms_lines.append(
+                        f'      method_selectors {{\n'
+                        f'        permission = "{ms["permission"]}"\n'
+                        f'      }}'
+                    )
+            ms_block = "\n".join(ms_lines)
+            to_lines.append(
+                f'    operations {{\n'
+                f'      service_name = "{service_name}"\n'
+                f'{ms_block}\n'
+                f'    }}'
+            )
+        to_block = "\n".join(to_lines)
+
+        return textwrap.dedent(f"""\
+        resource "google_access_context_manager_service_perimeter_ingress_policy" "{safe_name}" {{
+          perimeter = "{perimeter_resource_name}"
+          title     = "{_sanitise_hcl_string(title)}"
+
+          ingress_from {{
+        {from_block}
+          }}
+
+          ingress_to {{
+        {to_block}
+          }}
+
+          lifecycle {{
+            create_before_destroy = true
+          }}
+        }}
+        """)
+
+    @mcp.tool(annotations=GENERATE)
+    def generate_standalone_egress_policy_terraform(
+        perimeter_resource_name: str,
+        service_name: str,
+        method_selectors: list[dict[str, str]] | None = None,
+        identity_type: str | None = None,
+        identities: list[str] | None = None,
+        target_project_numbers: list[str] | None = None,
+        external_resources: list[str] | None = None,
+        roles: list[str] | None = None,
+        title: str = "Egress Rule",
+    ) -> str:
+        """Generate a standalone egress policy Terraform resource.
+
+        Uses google_access_context_manager_service_perimeter_egress_policy,
+        which manages a single egress rule independently of the perimeter
+        resource. This is preferred over inline egress_policies blocks for
+        easier lifecycle management.
+
+        Note: When using standalone policies, add a lifecycle ignore_changes
+        block to the perimeter resource for status[0].egress_policies.
+
+        Args:
+            perimeter_resource_name: Full perimeter resource name
+                (e.g. 'accessPolicies/123/servicePerimeters/my_perimeter').
+            service_name: The GCP service (e.g. 'storage.googleapis.com').
+            method_selectors: List of {'method': '...'} or {'permission': '...'}
+                dicts. Mutually exclusive with roles.
+            identity_type: One of 'ANY_IDENTITY', 'ANY_USER_ACCOUNT',
+                'ANY_SERVICE_ACCOUNT'. Mutually exclusive with identities.
+            identities: Explicit identity list.
+            target_project_numbers: Target project numbers.
+            external_resources: Non-GCP target resources (e.g. 's3://bucket/path').
+            roles: IAM roles to allow. Alternative to method_selectors.
+            title: Title for the egress policy.
+        """
+        safe_title = title.lower().replace(" ", "_").replace("-", "_")
+        safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", safe_title)
+
+        from_lines = []
+        if identity_type:
+            from_lines.append(f'    identity_type = "{identity_type}"')
+        elif identities:
+            from_lines.append(
+                f"    identities = {_hcl_list(identities, indent=4)}"
+            )
+        else:
+            from_lines.append('    identity_type = "ANY_IDENTITY"')
+        from_block = "\n".join(from_lines)
+
+        # Build egress_to
+        if target_project_numbers:
+            targets = [f"projects/{p}" for p in target_project_numbers]
+        else:
+            targets = ["*"]
+        targets_hcl = _hcl_list(targets, indent=4)
+
+        to_lines = [f"    resources = {targets_hcl}"]
+        if external_resources:
+            ext_hcl = _hcl_list(external_resources, indent=4)
+            to_lines.append(f"    external_resources = {ext_hcl}")
+        if roles:
+            roles_hcl = _hcl_list(roles, indent=4)
+            to_lines.append(f"    roles = {roles_hcl}")
+        else:
+            selectors = method_selectors or [{"method": "*"}]
+            ms_lines = []
+            for ms in selectors:
+                if "method" in ms:
+                    ms_lines.append(
+                        f'      method_selectors {{\n'
+                        f'        method = "{ms["method"]}"\n'
+                        f'      }}'
+                    )
+                elif "permission" in ms:
+                    ms_lines.append(
+                        f'      method_selectors {{\n'
+                        f'        permission = "{ms["permission"]}"\n'
+                        f'      }}'
+                    )
+            ms_block = "\n".join(ms_lines)
+            to_lines.append(
+                f'    operations {{\n'
+                f'      service_name = "{service_name}"\n'
+                f'{ms_block}\n'
+                f'    }}'
+            )
+        to_block = "\n".join(to_lines)
+
+        return textwrap.dedent(f"""\
+        resource "google_access_context_manager_service_perimeter_egress_policy" "{safe_name}" {{
+          perimeter = "{perimeter_resource_name}"
+          title     = "{_sanitise_hcl_string(title)}"
+
+          egress_from {{
+        {from_block}
+          }}
+
+          egress_to {{
+        {to_block}
+          }}
+
+          lifecycle {{
+            create_before_destroy = true
+          }}
         }}
         """)
 

@@ -372,7 +372,7 @@ vpcsc-mcp/
 │   │   └── safety.py          75 lines   Annotation presets, sanitise_output
 │   └── data/
 │       ├── __init__.py          1 line
-│       ├── services.py      ~400 lines   69 services, 6 workloads, 10 method selector sets
+│       ├── services.py      ~600 lines   147 services, 7 workloads, 10 method selector sets
 │       └── patterns.py      ~450 lines   8 ingress + 8 egress patterns, 6 troubleshooting guides
 ├── terraform/
 │   ├── main.tf                            Root config

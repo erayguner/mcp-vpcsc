@@ -206,7 +206,7 @@ Add to `~/.gemini/settings.json`:
 
 ## What the server does
 
-Once connected, you have 36 tools, 5 resources, and 3 prompts that cover the full VPC-SC lifecycle:
+Once connected, you have 40 tools, 5 resources, and 3 prompts that cover the full VPC-SC lifecycle:
 
 | Action | Example command | What it does |
 |---|---|---|
@@ -258,7 +258,7 @@ See [Use Cases](use-cases.md) for detailed walkthroughs of each step in common s
 |---|---|
 | VPC-SC concepts explained | [Concepts](concepts.md) |
 | Practical scenarios | [Use Cases](use-cases.md) |
-| All 36 tools explained | [MCP Server Guide](mcp-server-guide.md) |
+| All 40 tools explained | [MCP Server Guide](mcp-server-guide.md) |
 | Security controls | [Security](security.md) |
 | Architecture | [Architecture](architecture.md) |
 | Cloud Run deployment details | [Runbook: Cloud Run](runbook-cloud-run.md) |

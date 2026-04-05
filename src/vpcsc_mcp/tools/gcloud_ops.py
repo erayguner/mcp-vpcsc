@@ -308,6 +308,109 @@ def register_gcloud_tools(mcp) -> None:
             )
         return "\n".join(lines)
 
+    @mcp.tool(annotations=READONLY_GCP)
+    async def list_supported_services_live() -> str:
+        """Query the live list of VPC-SC supported services from the Access Context Manager API.
+
+        This returns the canonical, up-to-date list of all services that
+        support VPC Service Controls, including their support stage (GA,
+        Preview) and whether they are available on the restricted VIP.
+        """
+        result = await run_gcloud([
+            "access-context-manager", "supported-services", "list",
+        ])
+        if "error" in result:
+            return f"Error listing supported services: {result['error']}"
+        services = result.get("result", [])
+        if not services:
+            return "No supported services returned. Ensure you have an active access policy."
+
+        ga_services = []
+        preview_services = []
+        for svc in services:
+            name = svc.get("serviceName", svc.get("name", "unknown"))
+            title = svc.get("title", "")
+            stage = svc.get("serviceSupportStage", svc.get("serviceStatus", "UNKNOWN"))
+            restricted_vip = svc.get("availableOnRestrictedVip", svc.get("restrictedVipStatus", ""))
+            entry = f"  {name}"
+            if title:
+                entry += f" ({title})"
+            if restricted_vip in ("TRUE", True):
+                entry += " [restricted-VIP]"
+            if "GA" in str(stage).upper():
+                ga_services.append(entry)
+            else:
+                preview_services.append(entry)
+
+        lines = [f"VPC-SC Supported Services (live, {len(services)} total)\n"]
+        if ga_services:
+            lines.append(f"GA ({len(ga_services)}):")
+            lines.extend(sorted(ga_services))
+            lines.append("")
+        if preview_services:
+            lines.append(f"Preview / Other ({len(preview_services)}):")
+            lines.extend(sorted(preview_services))
+
+        return "\n".join(lines)
+
+    @mcp.tool(annotations=READONLY_GCP)
+    async def describe_supported_service(service_name: str) -> str:
+        """Get detailed VPC-SC support information for a specific service, including supported methods.
+
+        Returns the service's VPC-SC support stage, restricted VIP availability,
+        known limitations, and the full list of methods/permissions that can be
+        used in ingress/egress rule method selectors.
+
+        Args:
+            service_name: The service API name (e.g. 'bigquery.googleapis.com').
+        """
+        svc = service_name.strip()
+        if not svc.endswith(".googleapis.com"):
+            svc = f"{svc}.googleapis.com"
+
+        result = await run_gcloud([
+            "access-context-manager", "supported-services", "describe", svc,
+        ])
+        if "error" in result:
+            return f"Error describing service {svc}: {result['error']}"
+
+        data = result.get("result", result.get("result_text", {}))
+        if isinstance(data, str):
+            return data
+
+        if not isinstance(data, dict):
+            return json.dumps(data, indent=2) if data else f"No data returned for {svc}."
+
+        title = data.get("title", svc)
+        stage = data.get("serviceSupportStage", "UNKNOWN")
+        restricted_vip = data.get("availableOnRestrictedVip", "UNKNOWN")
+        limitations = data.get("knownLimitations", False)
+        methods = data.get("supportedMethods", [])
+
+        lines = [
+            f"Service: {svc} ({title})",
+            f"VPC-SC Support: {stage}",
+            f"Available on restricted VIP: {restricted_vip}",
+            f"Known limitations: {'Yes' if limitations else 'No'}",
+        ]
+
+        if methods:
+            lines.append(f"\nSupported methods/permissions ({len(methods)}):")
+            for m in methods:
+                method = m.get("method", "")
+                permission = m.get("permission", "")
+                if method:
+                    lines.append(f"  method: {method}")
+                elif permission:
+                    lines.append(f"  permission: {permission}")
+            lines.append(
+                "\nThese are the exact selectors you can use in ingress/egress rules."
+            )
+        else:
+            lines.append("\nNo method-level restrictions listed (use {'method': '*'} for all).")
+
+        return "\n".join(lines)
+
     @mcp.tool(annotations=WRITE_GCP)
     async def update_perimeter_resources(
         policy_id: str,

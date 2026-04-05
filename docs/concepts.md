@@ -39,7 +39,7 @@ VPC Service Controls create a **security boundary** (called a *perimeter*) aroun
 
 Think of it as a firewall for Google Cloud APIs. IAM controls *who* can access resources; VPC-SC controls *from where* and *to where* data can flow.
 
-**Where the MCP fits:** Setting up VPC-SC correctly requires understanding multiple interrelated concepts, navigating complex gcloud commands, writing Terraform configurations, and troubleshooting cryptic violation codes. The MCP server provides 36 tools that automate these tasks — scanning your project, generating configurations, explaining violations, and recommending the right services to protect.
+**Where the MCP fits:** Setting up VPC-SC correctly requires understanding multiple interrelated concepts, navigating complex gcloud commands, writing Terraform configurations, and troubleshooting cryptic violation codes. The MCP server provides 40 tools that automate these tasks — scanning your project, generating configurations, explaining violations, and recommending the right services to protect.
 
 ---
 
@@ -87,7 +87,9 @@ The list of Google Cloud APIs that a perimeter protects. Only services in this l
 
 **MCP tools:**
 - `recommend_restricted_services(workload_type)` — suggests which services to restrict based on your workload (AI/ML, data analytics, web app, etc.)
-- `list_supported_services()` — lists all 69 services the MCP knows support VPC-SC
+- `list_supported_services()` — lists all 147 services the MCP knows support VPC-SC
+- `list_supported_services_live()` — queries the live canonical list from the Access Context Manager API
+- `describe_supported_service(service_name)` — gets method-level restrictions for a service from the live API
 - `check_service_support(service_name)` — checks if a specific service supports VPC-SC
 - `diagnose_project()` — cross-references your enabled APIs against the perimeter's restricted services, flagging `[GAP]` for unprotected APIs
 
@@ -310,5 +312,5 @@ Organisation
 
 - [Getting Started](getting-started.md) — install and run your first diagnostic
 - [Use Cases](use-cases.md) — practical scenarios showing the MCP in action
-- [MCP Server Guide](mcp-server-guide.md) — full reference for all 36 tools
+- [MCP Server Guide](mcp-server-guide.md) — full reference for all 40 tools
 - [Security](security.md) — how the MCP server protects your environment
