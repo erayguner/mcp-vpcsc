@@ -1,7 +1,5 @@
 """Tools for managing VPC-SC via gcloud CLI commands."""
 
-from __future__ import annotations
-
 import asyncio
 import json
 import logging

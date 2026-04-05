@@ -1,7 +1,7 @@
 # VPC-SC MCP Server
 
 [![CI](https://github.com/erayguner/mcp-vpcsc/actions/workflows/ci.yml/badge.svg)](https://github.com/erayguner/mcp-vpcsc/actions/workflows/ci.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP SDK](https://img.shields.io/badge/MCP_SDK-1.26.0-green.svg)](https://pypi.org/project/mcp/)
 [![Ruff](https://img.shields.io/badge/linting-ruff-orange.svg)](https://docs.astral.sh/ruff/)
@@ -45,8 +45,8 @@ This server gives you (or your AI agent) 40 tools that automate the hard parts:
 
 | Category | Tools | Examples |
 |---|---|---|
-| **gcloud operations** | 9 | List perimeters, query audit logs, check dry-run status, update resources/services |
-| **Terraform generation** | 8 | Generate HCL for perimeters, access levels, bridges, ingress/egress rules, validate output |
+| **gcloud operations** | 11 | List perimeters, query audit logs, check dry-run status, update resources/services |
+| **Terraform generation** | 10 | Generate HCL for perimeters, access levels, bridges, ingress/egress rules, validate output |
 | **Analysis** | 9 | Troubleshoot violations, recommend services by workload, validate identities, explain method selectors, check data freshness |
 | **Rule generation** | 6 | Produce YAML for gcloud, apply pre-built patterns for BigQuery/Storage/Vertex AI |
 | **VPC-SC diagnostics** | 2 | Project readiness scan with protection gap analysis, implementation guide with Terraform |
@@ -100,7 +100,7 @@ scripts/
   cloudshell-setup.sh       One-command Cloud Shell setup
   run-diagnostic.py         Direct diagnostic CLI (no LLM needed)
 
-tests/                      18 tests
+tests/                      33 tests
 docs/                       9 documents (concepts, use-cases, getting-started, 3 runbooks, guide, security, architecture)
 Dockerfile                  Python 3.14 + gcloud, non-root
 cloudbuild.yaml             CI/CD: build, push, deploy
@@ -110,7 +110,7 @@ cloudbuild.yaml             CI/CD: build, push, deploy
 
 | Component | Version |
 |---|---|
-| Python | >= 3.10 |
+| Python | >= 3.13 |
 | MCP SDK (`mcp`) | 1.26.0 |
 | Terraform | >= 1.14 |
 | Google provider | ~> 7.0 (7.24.0) |

@@ -2,7 +2,7 @@
 name = "vpcsc-mcp"
 version = "0.1.0"
 description = "MCP server for VPC Service Controls setup and implementation — helps AI agents and developers manage GCP VPC-SC perimeters, access levels, and troubleshooting"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 license = "MIT"
 authors = [
     { name = "The Cloud Team" },
@@ -35,7 +35,7 @@ packages = ["src/vpcsc_mcp"]
 vpcsc-mcp = "vpcsc_mcp.server:main"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py313"
 line-length = 120
 
 [tool.ruff.lint]

@@ -1,7 +1,5 @@
 """Tools for generating ingress/egress rule YAML and retrieving common patterns."""
 
-from __future__ import annotations
-
 import json
 
 import yaml

@@ -13,7 +13,7 @@ Set up the VPC-SC MCP server in under 5 minutes. Pick your environment and follo
 | A GCP organisation | VPC-SC requires an org — personal projects can't use it | `gcloud organizations list` returns at least one org |
 | A GCP project with billing | gcloud tools query live GCP APIs | `gcloud config get-value project` returns your project ID |
 | `gcloud` CLI authenticated | The MCP server calls gcloud on your behalf | `gcloud auth list` shows an active account |
-| Python 3.10+ | The MCP server is a Python package | `python3 --version` shows 3.10 or later |
+| Python 3.13+ | The MCP server is a Python package | `python3 --version` shows 3.13 or later |
 
 ### IAM permissions needed
 
@@ -56,7 +56,7 @@ gcloud services enable orgpolicy.googleapis.com --project=YOUR_PROJECT
 
 ## Local setup
 
-**Time:** 2 minutes. **Needs:** Python 3.10+, gcloud CLI.
+**Time:** 2 minutes. **Needs:** Python 3.13+, gcloud CLI.
 
 ### Step 1: Install
 
@@ -72,7 +72,7 @@ pip install -e .
 python -m pytest tests/ -q
 ```
 
-You should see `18 passed`.
+You should see `33 passed`.
 
 ### Step 3: Connect to Gemini CLI
 

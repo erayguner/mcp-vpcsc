@@ -1,7 +1,5 @@
 """Tools for running project diagnostics and generating VPC-SC implementation guides."""
 
-from __future__ import annotations
-
 from mcp.server.fastmcp import Context
 from mcp.server.session import ServerSession
 

@@ -8,8 +8,6 @@ Implements MCP security best practices:
 - Provide annotation presets for tool safety declarations
 """
 
-from __future__ import annotations
-
 import re
 
 from mcp.types import ToolAnnotations

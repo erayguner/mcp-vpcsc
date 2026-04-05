@@ -1,7 +1,5 @@
 """Tools for generating Terraform HCL configurations for VPC-SC resources."""
 
-from __future__ import annotations
-
 import asyncio
 import json
 import os

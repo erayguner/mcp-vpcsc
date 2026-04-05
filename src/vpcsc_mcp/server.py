@@ -12,8 +12,6 @@ Provides tools for:
 - Common patterns and best practices for VPC-SC
 """
 
-from __future__ import annotations
-
 import json
 import logging
 import os
@@ -266,7 +264,7 @@ try:
             "status": "ok",
             "server": "vpcsc-mcp",
             "version": "0.1.0",
-            "tools": 38,
+            "tools": 40,
         })
 except ImportError:
     pass  # starlette not available in minimal installs

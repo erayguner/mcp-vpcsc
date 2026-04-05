@@ -1,7 +1,5 @@
 """Tools for analysing VPC-SC configurations, troubleshooting violations, and recommending services."""
 
-from __future__ import annotations
-
 import json
 
 from vpcsc_mcp.data.patterns import TROUBLESHOOTING_GUIDE
