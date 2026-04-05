@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP SDK](https://img.shields.io/badge/MCP_SDK-1.26.0-green.svg)](https://pypi.org/project/mcp/)
 [![Tools](https://img.shields.io/badge/tools-40-brightgreen.svg)](docs/mcp-server-guide.md)
-[![GCP Services](https://img.shields.io/badge/GCP_services-147-informational.svg)](src/vpcsc_mcp/data/services.py)
+[![GCP Services](https://img.shields.io/badge/GCP_services-217-informational.svg)](src/vpcsc_mcp/data/services.py)
 [![Ruff](https://img.shields.io/badge/linting-ruff-orange.svg)](https://docs.astral.sh/ruff/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 [![uv](https://img.shields.io/badge/uv-package_manager-blueviolet.svg)](https://docs.astral.sh/uv/)
@@ -24,7 +24,7 @@ Google Cloud IAM controls *who* can access resources. But it doesn't control *wh
 - **Cryptic errors** — `RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER` doesn't tell you *which* rule to add
 - **Silent failures** — use the wrong method selector type (`method` vs `permission`) and your rule does nothing
 - **High blast radius** — enforce a perimeter without testing and you can break production workloads instantly
-- **147 services** — each with different method selector formats and VPC-SC support details
+- **217 services** — each with different method selector formats and VPC-SC support details
 
 ## How this MCP helps
 
@@ -88,7 +88,7 @@ src/vpcsc_mcp/
     org_policy.py           Org policy compliance scan + Terraform generator
     safety.py               Tool annotations, output sanitisation, result truncation
   data/
-    services.py             147 supported services, 7 workload recommendations, method selectors
+    services.py             217 supported services, 7 workload recommendations, method selectors
     patterns.py             Pre-built ingress/egress patterns, troubleshooting guide
 
 terraform/                  Cloud Run deployment (Terraform >= 1.14, Google provider ~> 7.0)

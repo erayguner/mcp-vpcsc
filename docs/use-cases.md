@@ -32,7 +32,7 @@ For background on the concepts referenced here, see [VPC-SC Concepts](concepts.m
 The `diagnose_project` tool runs 10 automated steps:
 
 1. Resolves your active project and organisation
-2. Scans all enabled APIs against 147 known VPC-SC supported services
+2. Scans all enabled APIs against 217 known VPC-SC supported services
 3. Checks whether the project belongs to any perimeter
 4. Lists existing access levels, service accounts, and VPC networks
 5. Queries Cloud Audit Logs for recent VPC-SC violations
