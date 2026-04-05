@@ -4,7 +4,7 @@ For a quick-start version, see [Getting Started — Local setup](getting-started
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.13+
 - `gcloud` CLI authenticated (`gcloud auth login`)
 - IAM: `roles/accesscontextmanager.policyReader` + `roles/logging.viewer` on relevant projects (see [Getting Started — IAM permissions](getting-started.md#iam-permissions-needed) for the full list)
 
@@ -21,7 +21,7 @@ pip install -e ".[dev]"
 python -m pytest tests/ -v
 ```
 
-Expect: 18 passed.
+Expect: 33 passed.
 
 ## Connect to Gemini CLI
 

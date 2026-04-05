@@ -1,7 +1,5 @@
 """Tools for diagnosing Organisation Policy compliance and recommending configurations."""
 
-from __future__ import annotations
-
 from mcp.server.fastmcp import Context
 from mcp.server.session import ServerSession
 

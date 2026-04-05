@@ -84,8 +84,8 @@ Each module registers its tools via a `register_*_tools(mcp)` function. This kee
 
 | Module | Tools | External deps | Role |
 |---|---|---|---|
-| `gcloud_ops.py` (464 lines) | 9 | gcloud CLI | Query and update live GCP infrastructure |
-| `terraform_gen.py` (643 lines) | 8 | terraform CLI (validate only) | Generate and validate Terraform HCL |
+| `gcloud_ops.py` (464 lines) | 11 | gcloud CLI | Query and update live GCP infrastructure |
+| `terraform_gen.py` (643 lines) | 10 | terraform CLI (validate only) | Generate and validate Terraform HCL |
 | `analysis.py` (~430 lines) | 9 | gcloud CLI (check_data_freshness) | Troubleshoot violations, recommend services, validate inputs, check data freshness, explain method selectors |
 | `rule_gen.py` (251 lines) | 6 | None | Generate ingress/egress YAML, provide patterns |
 | `diagnostic.py` (813 lines) | 2 | gcloud CLI | VPC-SC project scan with gap analysis, implementation guide |
@@ -96,8 +96,8 @@ Each module registers its tools via a `register_*_tools(mcp)` function. This kee
 
 | Module | Content | Mutability |
 |---|---|---|
-| `services.py` (~400 lines) | 69 VPC-SC supported services, 6 workload recommendations, 10 services with method selectors | Static — loaded at import time |
-| `patterns.py` (~450 lines) | 8 ingress patterns, 8 egress patterns, 6 troubleshooting guides | Static — loaded at import time |
+| `services.py` (~400 lines) | 147 supported services, 7 workload recommendations, 10 services with method selectors | Static — loaded at import time |
+| `patterns.py` (~450 lines) | 7 ingress patterns, 7 egress patterns, 6 troubleshooting guides | Static — loaded at import time |
 
 ### Security layer (`safety.py`)
 
@@ -373,7 +373,7 @@ vpcsc-mcp/
 │   └── data/
 │       ├── __init__.py          1 line
 │       ├── services.py      ~600 lines   147 services, 7 workloads, 10 method selector sets
-│       └── patterns.py      ~450 lines   8 ingress + 8 egress patterns, 6 troubleshooting guides
+│       └── patterns.py      ~450 lines   7 ingress + 7 egress patterns, 6 troubleshooting guides
 ├── terraform/
 │   ├── main.tf                            Root config
 │   ├── variables.tf                       Input variables
@@ -385,10 +385,10 @@ vpcsc-mcp/
 │       ├── outputs.tf                     Module outputs
 │       └── versions.tf                    Provider constraints
 ├── examples/
-│   ├── adk-agent/                         Single ADK agent (35 tools)
+│   ├── adk-agent/                         Single ADK agent (40 tools)
 │   └── adk-multi-agent/                   4 specialists + coordinator
 ├── tests/
-│   └── test_server.py                     18 tests
+│   └── test_server.py                     33 tests
 ├── docs/
 │   ├── concepts.md                        VPC-SC concepts and how the MCP maps to each
 │   ├── use-cases.md                       8 practical scenarios with MCP walkthroughs
@@ -399,7 +399,7 @@ vpcsc-mcp/
 │   ├── runbook-local.md                   Local setup
 │   ├── runbook-cloudshell.md              Cloud Shell setup
 │   └── runbook-cloud-run.md              Cloud Run deployment
-├── Dockerfile                             Python 3.14 + gcloud, non-root
+├── Dockerfile                             Python 3.14 + gcloud, non-root (requires >= 3.13)
 ├── cloudbuild.yaml                        Build, push, deploy pipeline
 ├── pyproject.toml                         Package config (mcp, pydantic, pyyaml)
 └── .gitignore                             Python, Terraform, secrets exclusions

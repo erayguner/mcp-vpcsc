@@ -1,7 +1,5 @@
 """Organisation Policy baseline — expected constraints, enforcement, risk, and rationale."""
 
-from __future__ import annotations
-
 EXPECTED_POLICIES: dict[str, dict] = {
     # Compute
     "compute.disableSerialPortAccess": {

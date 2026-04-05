@@ -8,7 +8,7 @@
 #   git clone <your-repo> && cd vpcsc-mcp
 #   bash scripts/cloudshell-setup.sh
 #
-# Prerequisites: Cloud Shell has gcloud, Python 3.10+, and npm pre-installed.
+# Prerequisites: Cloud Shell has gcloud, Python 3.13+, and npm pre-installed.
 
 set -euo pipefail
 

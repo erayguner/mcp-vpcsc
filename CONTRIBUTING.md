@@ -4,7 +4,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.13+
 - [uv](https://docs.astral.sh/uv/) package manager
 - A Google Cloud project (for integration testing)
 
@@ -44,7 +44,7 @@ uv run pytest
 
 - **Linter:** [Ruff](https://docs.astral.sh/ruff/) — rules E, F, I, W
 - **Line length:** 120 characters
-- **Target:** Python 3.10
+- **Target:** Python 3.13
 
 Run `uv run ruff check src/ tests/` to check and `uv run ruff check --fix src/ tests/` to auto-fix.
 

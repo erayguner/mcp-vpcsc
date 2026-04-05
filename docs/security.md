@@ -35,12 +35,12 @@ All 40 tools declare behavioural hints per the MCP specification. Clients use th
 
 | Category | Tools | readOnlyHint | destructiveHint | idempotentHint | openWorldHint |
 |---|---|---|---|---|---|
-| gcloud read operations (incl. org-policies) | 7 | true | false | true | true |
+| gcloud read operations | 9 | true | false | true | true |
 | gcloud write operations | 2 | false | **true** | false | true |
-| Terraform/YAML generation | 13 | true | false | true | false |
-| Terraform validation | 1 | true | false | false | true |
+| Terraform/YAML generation | 15 | true | false | true | false |
 | Analysis/troubleshooting | 8 | true | false | true | false |
 | Data freshness check | 1 | true | false | false | true |
+| Terraform validation | 1 | true | false | false | true |
 | VPC-SC diagnostics | 2 | true | false | false | true |
 | Org policy diagnostics | 2 | true | false | false | true |
 
@@ -132,7 +132,7 @@ Diagnostic tools log step progress:
 ## Container security
 
 - **Non-root user** — the Dockerfile creates `appuser` (UID 1001) and runs as that user
-- **Minimal image** — `python:3.14-slim` base with only gcloud CLI added
+- **Minimal image** — `python:3.14-slim` base (Python >= 3.13 required) with only gcloud CLI added
 - **No secrets in image** — credentials come from workload identity or mounted service account
 - **Immutable tags** — optional, prevents image tag overwriting in Artifact Registry
 - **Binary Authorization** — optional, verifies container images before deployment
