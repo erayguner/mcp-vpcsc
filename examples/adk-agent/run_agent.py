@@ -28,7 +28,7 @@ async def main(query: str) -> None:
     """Run a single query through the VPC-SC agent."""
 
     # Connect to the MCP server as a subprocess
-    tools, exit_stack = await McpToolset.from_server(
+    mcp_toolset = McpToolset(
         connection_params=StdioConnectionParams(
             server_params=StdioServerParameters(
                 command=sys.executable,
@@ -38,7 +38,6 @@ async def main(query: str) -> None:
             timeout=10,
         ),
     )
-    print(f"Connected to VPC-SC MCP server — {len(tools)} tools available\n")
 
     agent = LlmAgent(
         model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
@@ -47,11 +46,11 @@ async def main(query: str) -> None:
             "You are a VPC Service Controls specialist. "
             "Use the available tools to help the user."
         ),
-        tools=tools,
+        tools=[mcp_toolset],
     )
 
     session_service = InMemorySessionService()
-    session = session_service.create_session(
+    session = await session_service.create_session(
         state={}, app_name="vpcsc-mcp", user_id="cli-user",
     )
 
@@ -74,8 +73,6 @@ async def main(query: str) -> None:
             for part in event.content.parts:
                 if hasattr(part, "text") and part.text:
                     print(f"Agent: {part.text}")
-
-    await exit_stack.aclose()
 
 
 if __name__ == "__main__":

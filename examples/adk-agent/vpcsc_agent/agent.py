@@ -84,7 +84,7 @@ When helping users:
 - For cross-project BigQuery access, remind users they need BOTH ingress AND egress rules.
 - Use the pre-built patterns when they match the user's scenario.
 
-You have access to 29 tools from the VPC-SC MCP server. Use them proactively.\
+You have access to 40 tools from the VPC-SC MCP server. Use them proactively.\
 """,
     tools=[_build_toolset()],
 )
