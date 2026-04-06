@@ -333,10 +333,6 @@ def register_diagnostic_tools(mcp) -> None:
                 sections.append("\n  All enabled VPC-SC APIs are already protected. No gaps found.")
 
             # In perimeter but not enabled (over-restricted)
-            sorted(
-                protected_services - set(enabled_apis)
-                - (set(SUPPORTED_SERVICES.keys()) - protected_services)
-            )
             restricted_but_unused = sorted(protected_services - set(enabled_apis))
             if restricted_but_unused:
                 sections.append(

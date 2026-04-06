@@ -63,16 +63,16 @@ gcloud services enable orgpolicy.googleapis.com --project=YOUR_PROJECT
 ```bash
 git clone <your-repo-url> vpcsc-mcp
 cd vpcsc-mcp
-pip install -e .
+uv sync --frozen --extra dev
 ```
 
 ### Step 2: Verify
 
 ```bash
-python -m pytest tests/ -q
+uv run pytest tests/ -q
 ```
 
-You should see `33 passed`.
+You should see `65 passed`.
 
 ### Step 3: Connect to Gemini CLI
 
@@ -206,7 +206,7 @@ Add to `~/.gemini/settings.json`:
 
 ## What the server does
 
-Once connected, you have 40 tools, 5 resources, and 3 prompts that cover the full VPC-SC lifecycle:
+Once connected, you have 40 tools, 6 resources, and 3 prompts that cover the full VPC-SC lifecycle:
 
 | Action | Example command | What it does |
 |---|---|---|

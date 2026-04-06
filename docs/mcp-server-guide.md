@@ -75,7 +75,7 @@ This server automates the most time-consuming and error-prone parts of working w
 
 ```bash
 cd vpcsc-mcp
-pip install -e ".[dev]"
+uv sync --frozen --extra dev
 ```
 
 ### Verify it works
@@ -106,7 +106,7 @@ Create or edit `~/.gemini/settings.json`:
 }
 ```
 
-Start `gemini`. The 40 tools, 5 resources, and 3 prompts are available automatically.
+Start `gemini`. The 40 tools, 6 resources, and 3 prompts are available automatically.
 
 ---
 

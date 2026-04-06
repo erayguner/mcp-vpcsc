@@ -17,6 +17,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -41,6 +42,9 @@ from vpcsc_mcp.tools import (
     register_terraform_tools,
 )
 
+# Server start time for uptime tracking
+_SERVER_START_TIME: float | None = None
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -62,7 +66,9 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[None]:
             "will return errors. Install gcloud: https://cloud.google.com/sdk/docs/install"
         )
 
-    logger.info("VPC-SC MCP server starting — 40 tools, 5 resources, 3 prompts")
+    global _SERVER_START_TIME
+    _SERVER_START_TIME = time.monotonic()
+    logger.info("VPC-SC MCP server starting — 40 tools, 6 resources, 3 prompts")
     yield
     logger.info("VPC-SC MCP server shutting down")
 
@@ -105,10 +111,22 @@ register_org_policy_tools(mcp)
 # ---------------------------------------------------------------------------
 
 
+def _resource_meta() -> dict:
+    """Common metadata for static resources (version, freshness, quality)."""
+    return {
+        "server_version": "0.1.0",
+        "data_source": "built-in",
+        "quality": "curated",
+    }
+
+
 @mcp.resource("vpcsc://services/supported")
 def resource_supported_services() -> str:
     """Full list of GCP services that support VPC Service Controls."""
-    lines = [f"VPC-SC Supported Services ({len(SUPPORTED_SERVICES)} total)\n"]
+    meta = _resource_meta()
+    meta["total_services"] = len(SUPPORTED_SERVICES)
+    lines = [f"VPC-SC Supported Services ({len(SUPPORTED_SERVICES)} total)"]
+    lines.append(f"_meta: {json.dumps(meta)}\n")
     for api, display in sorted(SUPPORTED_SERVICES.items()):
         lines.append(f"  {api} — {display}")
     return "\n".join(lines)
@@ -121,25 +139,55 @@ def resource_workload_recommendations(workload_type: str) -> str:
     if not rec:
         available = ", ".join(WORKLOAD_RECOMMENDATIONS.keys())
         return f"Unknown workload: {workload_type}. Available: {available}"
-    return json.dumps(rec, indent=2)
+    result = dict(rec)
+    result["_meta"] = _resource_meta()
+    return json.dumps(result, indent=2)
 
 
 @mcp.resource("vpcsc://patterns/ingress")
 def resource_ingress_patterns() -> str:
     """Common ingress rule patterns for VPC-SC perimeters."""
-    return json.dumps(COMMON_INGRESS_PATTERNS, indent=2)
+    result = {
+        "_meta": {**_resource_meta(), "pattern_count": len(COMMON_INGRESS_PATTERNS)},
+        "patterns": COMMON_INGRESS_PATTERNS,
+    }
+    return json.dumps(result, indent=2)
 
 
 @mcp.resource("vpcsc://patterns/egress")
 def resource_egress_patterns() -> str:
     """Common egress rule patterns for VPC-SC perimeters."""
-    return json.dumps(COMMON_EGRESS_PATTERNS, indent=2)
+    result = {
+        "_meta": {**_resource_meta(), "pattern_count": len(COMMON_EGRESS_PATTERNS)},
+        "patterns": COMMON_EGRESS_PATTERNS,
+    }
+    return json.dumps(result, indent=2)
 
 
 @mcp.resource("vpcsc://troubleshooting/guide")
 def resource_troubleshooting_guide() -> str:
     """VPC-SC violation troubleshooting guide."""
-    return json.dumps(TROUBLESHOOTING_GUIDE, indent=2)
+    result = {
+        "_meta": {**_resource_meta(), "violation_types": len(TROUBLESHOOTING_GUIDE)},
+        "guide": TROUBLESHOOTING_GUIDE,
+    }
+    return json.dumps(result, indent=2)
+
+
+@mcp.resource("vpcsc://server/metrics")
+def resource_server_metrics() -> str:
+    """Server observability metrics — cache stats, rate limiter, tool performance."""
+    from vpcsc_mcp.tools.observability import cache, metrics, rate_limiter
+
+    uptime = round(time.monotonic() - _SERVER_START_TIME, 1) if _SERVER_START_TIME else 0
+    result = {
+        "_meta": {"server_version": "0.1.0", "data_source": "runtime"},
+        "uptime_seconds": uptime,
+        "cache": cache.stats,
+        "rate_limiter": rate_limiter.stats,
+        "tools": metrics.summary,
+    }
+    return json.dumps(result, indent=2)
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +313,8 @@ try:
             "server": "vpcsc-mcp",
             "version": "0.1.0",
             "tools": 40,
+            "resources": 6,
+            "prompts": 3,
         })
 except ImportError:
     pass  # starlette not available in minimal installs

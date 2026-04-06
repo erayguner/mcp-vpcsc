@@ -26,7 +26,7 @@ For the concepts behind VPC-SC, see [Concepts](concepts.md). For how to use the 
 │  ┌──────────┐  ┌──────────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
 │  │ gcloud   │  │ terraform    │  │ analysis │  │ rule     │  │diagnos- │ │
 │  │ _ops     │  │ _gen         │  │          │  │ _gen     │  │tic      │ │
-│  │ 9 tools  │  │ 8 tools      │  │ 7 tools  │  │ 6 tools  │  │ 2 tools │ │
+│  │ 11 tools │  │ 10 tools     │  │ 9 tools  │  │ 6 tools  │  │ 2 tools │ │
 │  └────┬─────┘  └──────┬───────┘  └──────────┘  └──────────┘  └────┬────┘ │
 │       │               │                                            │      │
 │  ┌────▼─────┐  ┌──────▼───────┐                              ┌────▼────┐ │
@@ -37,14 +37,15 @@ For the concepts behind VPC-SC, see [Concepts](concepts.md). For how to use the 
 │  ┌────▼───────────────▼────────────────────────────────────────────▼────┐ │
 │  │                    Security Layer (safety.py)                        │ │
 │  │  Subcommand allowlist │ Flag allowlist │ Arg validation │ 120s timeout│ │
-│  │  Tool annotations     │ Output sanitisation │ Write confirmation     │ │
+│  │  Tool annotations │ Output sanitisation │ Data redaction │ Rate limit │ │
 │  └─────────────────────────────────────────────────────────────────────┘ │
 │                                                                           │
 │  ┌──────────────┐  ┌───────────────────┐  ┌───────────────┐              │
-│  │ data/        │  │ Resources (5)     │  │ Prompts (3)   │              │
+│  │ data/        │  │ Resources (6)     │  │ Prompts (3)   │              │
 │  │ services.py  │  │ vpcsc://services  │  │ design        │              │
 │  │ patterns.py  │  │ vpcsc://workloads │  │ troubleshoot  │              │
 │  │ (static)     │  │ vpcsc://patterns  │  │ migrate       │              │
+│  │              │  │ vpcsc://server/*  │  │               │              │
 │  └──────────────┘  └───────────────────┘  └───────────────┘              │
 │                                                                           │
 │  ┌─────────────────────────────────────────┐                              │
@@ -67,7 +68,7 @@ For the concepts behind VPC-SC, see [Concepts](concepts.md). For how to use the 
 
 ## Component design
 
-### Server (`server.py` — 305 lines)
+### Server (`server.py`)
 
 The entry point. Creates the `FastMCP` instance, registers all tool modules, defines resources and prompts, manages transport selection and lifespan.
 
@@ -388,7 +389,9 @@ vpcsc-mcp/
 │   ├── adk-agent/                         Single ADK agent (40 tools)
 │   └── adk-multi-agent/                   4 specialists + coordinator
 ├── tests/
-│   └── test_server.py                     33 tests
+│   ├── test_server.py                     33 tests (data, resources, server)
+│   ├── test_observability.py              17 tests (cache, rate limit, metrics, audit)
+│   └── test_safety.py                     15 tests (redaction, sanitisation, validation)
 ├── docs/
 │   ├── concepts.md                        VPC-SC concepts and how the MCP maps to each
 │   ├── use-cases.md                       8 practical scenarios with MCP walkthroughs

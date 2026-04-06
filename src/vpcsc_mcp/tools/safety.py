@@ -4,6 +4,7 @@ Implements MCP security best practices:
 - Validate gcloud arguments against command/flag allowlists
 - Reject shell metacharacters in user-provided arguments
 - Strip instruction-like content from tool outputs (prompt injection defence)
+- Redact sensitive data patterns from tool outputs (data minimisation)
 - Truncate long results to prevent context pollution
 - Provide annotation presets for tool safety declarations
 """
@@ -59,14 +60,19 @@ _INJECTION_PATTERNS = re.compile(
 MAX_OUTPUT_LENGTH = 50_000
 
 
-def sanitise_output(text: str) -> str:
-    """Sanitise tool output to defend against prompt injection via tool results.
+def sanitise_output(text: str, redact: bool = True) -> str:
+    """Sanitise tool output to defend against prompt injection and data leakage.
 
     - Strips instruction-like tags and directives
+    - Optionally redacts sensitive data patterns (emails, SA keys, IPs)
     - Truncates to MAX_OUTPUT_LENGTH
     """
     # Strip injection patterns
     cleaned = _INJECTION_PATTERNS.sub("[FILTERED]", text)
+
+    # Redact sensitive data
+    if redact:
+        cleaned = redact_sensitive_data(cleaned)
 
     # Truncate
     if len(cleaned) > MAX_OUTPUT_LENGTH:
@@ -76,6 +82,37 @@ def sanitise_output(text: str) -> str:
             f"showing first {MAX_OUTPUT_LENGTH}]"
         )
 
+    return cleaned
+
+
+# ─── Sensitive Data Redaction ─────────────────────────────────────────────
+
+# Service account key IDs (40-char hex or base64 strings following "private_key_id" or similar)
+_SA_KEY_PATTERN = re.compile(
+    r'"private_key":\s*"[^"]{50,}"',
+)
+
+# Full private key blocks (PEM format)
+_PEM_KEY_PATTERN = re.compile(
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----",
+)
+
+# OAuth tokens and bearer tokens
+_TOKEN_PATTERN = re.compile(
+    r"(ya29\.[A-Za-z0-9_-]{20,}|Bearer\s+[A-Za-z0-9_-]{20,})",
+)
+
+
+def redact_sensitive_data(text: str) -> str:
+    """Redact sensitive patterns from tool output for data minimisation.
+
+    Redacts:
+    - Service account private keys (PEM blocks and JSON key fields)
+    - OAuth access tokens and bearer tokens
+    """
+    cleaned = _SA_KEY_PATTERN.sub('"private_key": "[REDACTED]"', text)
+    cleaned = _PEM_KEY_PATTERN.sub("[REDACTED PRIVATE KEY]", cleaned)
+    cleaned = _TOKEN_PATTERN.sub("[REDACTED TOKEN]", cleaned)
     return cleaned
 
 

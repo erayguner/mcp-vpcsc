@@ -53,10 +53,10 @@ This server gives you (or your AI agent) 40 tools that automate the hard parts:
 | **Rule generation** | 6 | Produce YAML for gcloud, apply pre-built patterns for BigQuery/Storage/Vertex AI |
 | **VPC-SC diagnostics** | 2 | Project readiness scan with protection gap analysis, implementation guide with Terraform |
 | **Org policy diagnostics** | 2 | Org policy compliance scan (COMPLIANT/NON-COMPLIANT/NOT SET), Terraform generator |
-| **Resources** | 5 | Supported services list, workload guides, common patterns |
+| **Resources** | 6 | Supported services list, workload guides, common patterns, server metrics |
 | **Prompts** | 3 | Perimeter design, troubleshoot denial, migration planning |
 
-**40 tools, 5 resources, 3 prompts.** All 40 tools carry MCP `ToolAnnotations` (38 read-only, 2 destructive).
+**40 tools, 6 resources, 3 prompts.** All 40 tools carry MCP `ToolAnnotations` (38 read-only, 2 destructive).
 
 ## Security and governance
 
@@ -64,7 +64,10 @@ This server gives you (or your AI agent) 40 tools that automate the hard parts:
 - **Argument validation** — shell metacharacters and privilege-escalation flags rejected
 - **Write operations require confirmation** — preview by default, `confirm=True` to execute
 - **Tool annotations** — every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`
-- **Output sanitisation** — strips prompt-injection patterns from tool results
+- **Output sanitisation** — strips prompt-injection patterns and redacts private keys/tokens from tool results
+- **Rate limiting** — max 5 concurrent gcloud operations via asyncio semaphore
+- **Result caching** — read-only gcloud queries cached for 5 minutes to prevent redundant calls
+- **Structured audit logging** — every tool invocation logged as JSON with tool name, args, duration, status
 - **Non-root container** — runs as UID 1001
 - **Read-only SA** — no write roles for Access Context Manager
 - **Lifespan checks** — validates gcloud CLI at startup; graceful shutdown on SIGTERM
@@ -80,13 +83,14 @@ See [Security and Governance](docs/security.md) for the full threat model and co
 src/vpcsc_mcp/
   server.py                 FastMCP server, lifespan, health check, resources, prompts
   tools/
-    gcloud_ops.py           gcloud CLI tools with allowlist, validation, timeout
+    gcloud_ops.py           gcloud CLI tools with allowlist, validation, caching, rate limiting
     terraform_gen.py        Terraform HCL generators, input validation, terraform validate
     analysis.py             Troubleshooting, recommendations, validation, data freshness
     rule_gen.py             Ingress/egress YAML and pattern library
     diagnostic.py           VPC-SC project diagnostics + implementation guide
     org_policy.py           Org policy compliance scan + Terraform generator
-    safety.py               Tool annotations, output sanitisation, result truncation
+    safety.py               Tool annotations, output sanitisation, data redaction
+    observability.py        Audit logging, result caching, rate limiting, tool metrics
   data/
     services.py             216 supported services, 7 workload recommendations, method selectors
     patterns.py             Pre-built ingress/egress patterns, troubleshooting guide
@@ -102,7 +106,7 @@ scripts/
   cloudshell-setup.sh       One-command Cloud Shell setup
   run-diagnostic.py         Direct diagnostic CLI (no LLM needed)
 
-tests/                      33 tests
+tests/                      65 tests
 docs/                       9 documents (concepts, use-cases, getting-started, 3 runbooks, guide, security, architecture)
 Dockerfile                  Python 3.14 + gcloud, non-root
 cloudbuild.yaml             CI/CD: build, push, deploy

@@ -6,7 +6,8 @@ import logging
 import sys
 import time
 
-from vpcsc_mcp.tools.safety import validate_gcloud_args
+from vpcsc_mcp.tools.observability import audit_log, cache, metrics, rate_limiter
+from vpcsc_mcp.tools.safety import sanitise_output, validate_gcloud_args
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +28,46 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
       - Arguments are validated against a safe character pattern.
       - Uses create_subprocess_exec (not shell=True) — no shell injection.
       - Enforces a timeout to prevent hung processes.
+      - Rate-limited to prevent API abuse.
+      - Output is sanitised (prompt injection + sensitive data redaction).
+
+    Performance:
+      - Read-only results are cached with a 5-minute TTL.
+      - Audit logged for security review.
     """
+    tool_name = f"gcloud.{args[0]}" if args else "gcloud"
+    t0 = time.monotonic()
+
     # Validate arguments before execution
     error = validate_gcloud_args(args)
     if error:
         _log(f"BLOCKED: {error}")
-        return {"error": f"Validation failed: {error}", "command": f"gcloud {' '.join(args)}"}
+        audit_log(tool=tool_name, args=args, success=False, error=error)
+        return {
+            "error": f"Validation failed: {error}",
+            "error_code": "VALIDATION_FAILED",
+            "command": f"gcloud {' '.join(args)}",
+        }
+
+    # Check cache for read-only operations
+    cached_result = cache.get(args, project)
+    if cached_result is not None:
+        elapsed_ms = (time.monotonic() - t0) * 1000
+        _log(f"CACHE HIT: gcloud {' '.join(args)}")
+        audit_log(tool=tool_name, args=args, duration_ms=elapsed_ms, cached=True)
+        metrics.record(tool_name, elapsed_ms, cached=True)
+        return cached_result
+
+    # Rate limiting — wait for a slot
+    acquired = await rate_limiter.acquire(timeout=30.0)
+    if not acquired:
+        _log(f"RATE LIMITED: gcloud {' '.join(args)}")
+        audit_log(tool=tool_name, args=args, success=False, error="Rate limited")
+        return {
+            "error": "Too many concurrent gcloud operations. Please retry shortly.",
+            "error_code": "RATE_LIMITED",
+            "command": f"gcloud {' '.join(args)}",
+        }
 
     cmd = ["gcloud"] + args + ["--format=json"]
     if project:
@@ -42,7 +77,6 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
     display_cmd = " ".join(a for a in cmd if a != "--format=json")
     _log(f"EXEC: {display_cmd}")
 
-    t0 = time.monotonic()
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -53,34 +87,67 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
             proc.communicate(), timeout=_GCLOUD_TIMEOUT,
         )
     except asyncio.TimeoutError:
+        elapsed_ms = (time.monotonic() - t0) * 1000
         _log(f"TIMEOUT: {display_cmd} (>{_GCLOUD_TIMEOUT}s)")
         try:
             proc.kill()
         except ProcessLookupError:
             pass
-        return {"error": f"Command timed out after {_GCLOUD_TIMEOUT}s", "command": " ".join(cmd)}
+        audit_log(tool=tool_name, args=args, duration_ms=elapsed_ms, success=False, error="timeout")
+        metrics.record(tool_name, elapsed_ms, success=False)
+        return {
+            "error": f"Command timed out after {_GCLOUD_TIMEOUT}s",
+            "error_code": "TIMEOUT",
+            "command": " ".join(cmd),
+        }
+    finally:
+        rate_limiter.release()
 
     elapsed = time.monotonic() - t0
+    elapsed_ms = elapsed * 1000
 
     if proc.returncode != 0:
         error_msg = stderr.decode().strip()
         _log(f"FAIL: {display_cmd} ({elapsed:.1f}s) — {error_msg[:120]}")
-        return {"error": error_msg, "command": " ".join(cmd), "returncode": proc.returncode}
+        audit_log(tool=tool_name, args=args, duration_ms=elapsed_ms, success=False, error=error_msg[:200])
+        metrics.record(tool_name, elapsed_ms, success=False)
+        return {
+            "error": error_msg,
+            "error_code": "GCLOUD_ERROR",
+            "command": " ".join(cmd),
+            "returncode": proc.returncode,
+        }
 
     raw = stdout.decode().strip()
+
+    # Sanitise output (prompt injection defence + sensitive data redaction)
+    raw = sanitise_output(raw)
+
     if not raw:
         _log(f"  OK: {display_cmd} ({elapsed:.1f}s) — empty result")
-        return {"result": [], "command": " ".join(cmd)}
+        result = {"result": [], "command": " ".join(cmd)}
+        cache.set(args, project, result)
+        audit_log(tool=tool_name, args=args, duration_ms=elapsed_ms)
+        metrics.record(tool_name, elapsed_ms)
+        return result
 
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
         _log(f"  OK: {display_cmd} ({elapsed:.1f}s) — text response")
-        return {"result_text": raw, "command": " ".join(cmd)}
+        result = {"result_text": raw, "command": " ".join(cmd)}
+        cache.set(args, project, result)
+        audit_log(tool=tool_name, args=args, duration_ms=elapsed_ms)
+        metrics.record(tool_name, elapsed_ms)
+        return result
 
     count = len(parsed) if isinstance(parsed, list) else 1
     _log(f"  OK: {display_cmd} ({elapsed:.1f}s) — {count} result(s)")
-    return {"result": parsed, "command": " ".join(cmd)}
+    result = {"result": parsed, "command": " ".join(cmd)}
+    cache.set(args, project, result)
+    audit_log(tool=tool_name, args=args, duration_ms=elapsed_ms)
+    metrics.record(tool_name, elapsed_ms)
+    return result
 
 
 def register_gcloud_tools(mcp) -> None:

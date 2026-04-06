@@ -12,16 +12,16 @@ For a quick-start version, see [Getting Started — Local setup](getting-started
 
 ```bash
 cd vpcsc-mcp
-pip install -e ".[dev]"
+uv sync --frozen --extra dev
 ```
 
 ## Verify
 
 ```bash
-python -m pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
-Expect: 33 passed.
+Expect: 65 passed.
 
 ## Connect to Gemini CLI
 
@@ -131,7 +131,7 @@ curl http://127.0.0.1:8080/health
 ## Use with Google ADK (optional)
 
 ```bash
-pip install ".[adk]"
+uv sync --frozen --extra adk
 cd examples/adk-agent
 cp .env.example .env       # set GOOGLE_API_KEY
 adk web                    # browser UI at localhost:8000
@@ -155,9 +155,9 @@ python examples/adk-agent/run_agent.py "Recommend services for an AI/ML perimete
 
 | Problem | Fix |
 |---|---|
-| `ModuleNotFoundError: vpcsc_mcp` | Run `pip install -e .` from the project root |
+| `ModuleNotFoundError: vpcsc_mcp` | Run `uv sync --frozen --extra dev` from the project root |
 | gcloud tools return errors | Run `gcloud auth login` and verify `gcloud access-context-manager policies list --organization=ORG_ID` works |
 | `gcloud CLI not found` warning at startup | Install gcloud: https://cloud.google.com/sdk/docs/install |
 | ADK agent fails to connect | Check `.env` has a valid `GOOGLE_API_KEY` or Vertex AI config |
-| `mcp` version conflict | Pin with `pip install "mcp>=1.26.0,<2"` |
+| `mcp` version conflict | Pin with `uv add "mcp>=1.26.0,<2"` or check `pyproject.toml` constraints |
 | `BLOCKED: Flag 'X' is not in the allowed list` | The server rejects unknown gcloud flags for security. Only 11 flags are permitted. |
