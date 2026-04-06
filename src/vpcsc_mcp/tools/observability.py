@@ -1,6 +1,6 @@
 """Observability module — audit logging, result caching, rate limiting, and metrics.
 
-Implements MCP best practices from the Model Context Protocol book:
+Implements MCP best practices:
 - Structured audit logging for every tool invocation (Ch 8)
 - TTL-based caching for read-only gcloud results (Ch 6, 9)
 - Asyncio semaphore rate limiting for gcloud operations (Ch 8)
