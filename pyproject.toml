@@ -7,11 +7,30 @@ license = "MIT"
 authors = [
     { name = "The Cloud Team" },
 ]
+keywords = ["mcp", "vpc-service-controls", "gcp", "google-cloud", "security", "terraform", "ai-agent"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
+]
 dependencies = [
     "mcp[cli]>=1.26.0,<2",
     "pydantic>=2.12.0",
     "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/erayguner/mcp-vpcsc"
+Repository = "https://github.com/erayguner/mcp-vpcsc"
+Documentation = "https://github.com/erayguner/mcp-vpcsc/tree/main/docs"
+Issues = "https://github.com/erayguner/mcp-vpcsc/issues"
+Changelog = "https://github.com/erayguner/mcp-vpcsc/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 adk = [

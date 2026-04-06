@@ -145,3 +145,22 @@ cloudbuild.yaml             CI/CD: build, push, deploy
 | [MCP Server Guide](docs/mcp-server-guide.md) | All 40 tools, validation rules, Terraform module patterns, end-to-end examples |
 | [Security](docs/security.md) | Threat model, command allowlists, tool annotations, governance controls |
 | [Architecture](docs/architecture.md) | Component diagrams, data flows, deployment patterns, design decisions |
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before getting started. Look for issues labelled [`good first issue`](https://github.com/erayguner/mcp-vpcsc/labels/good%20first%20issue) if you're new to the project.
+
+## Community
+
+- [Code of Conduct](CODE_OF_CONDUCT.md) — we follow the Contributor Covenant
+- [Governance](GOVERNANCE.md) — how decisions are made
+- [GitHub Discussions](https://github.com/erayguner/mcp-vpcsc/discussions) — questions, ideas, conversation
+- [Support](SUPPORT.md) — where to get help
+
+## Security
+
+Found a vulnerability? **Do not** open a public issue. See [SECURITY.md](SECURITY.md) for responsible disclosure.
+
+## License
+
+[MIT](LICENSE)
