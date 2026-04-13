@@ -35,7 +35,7 @@ Changelog = "https://github.com/erayguner/mcp-vpcsc/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 adk = [
     "google-adk>=1.27.0",
-    "python-dotenv>=1.0.0",
+    "python-dotenv>=1.2.2",
 ]
 dev = [
     "pytest>=8.0",
