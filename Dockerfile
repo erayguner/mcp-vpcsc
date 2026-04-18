@@ -3,9 +3,15 @@ FROM python:3.14-slim
 # Install uv and gcloud CLI
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    gnupg \
+# Pull Debian security patches first to close HIGH/CRITICAL CVEs surfaced by
+# Trivy on every fresh scan. -y + -o Dpkg to avoid interactive prompts.
+RUN apt-get update \
+    && apt-get upgrade -y \
+       -o Dpkg::Options::="--force-confdef" \
+       -o Dpkg::Options::="--force-confold" \
+    && apt-get install -y --no-install-recommends \
+       curl \
+       gnupg \
     && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
        > /etc/apt/sources.list.d/google-cloud-sdk.list \
     && curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \

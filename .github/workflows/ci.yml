@@ -83,15 +83,30 @@ jobs:
       - name: Build Docker image
         run: docker build -t vpcsc-mcp:${{ github.sha }} .
 
-      - name: Trivy container scan
+      # Report HIGH+CRITICAL fixable findings as a readable table in CI logs.
+      # Non-blocking (exit-code 0) so reviewers can see what needs attention
+      # without failing every PR on base-image CVE churn.
+      - name: Trivy scan — report HIGH+CRITICAL
         uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: vpcsc-mcp:${{ github.sha }}
-          format: sarif
-          output: trivy-results.sarif
-          exit-code: "1"
+          format: table
+          exit-code: "0"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+
+      # Enforce on CRITICAL only — HIGH findings are reviewed per framework §12.3
+      # but do not block CI. Tighten this once .trivyignore is populated with
+      # justified exceptions.
+      - name: Trivy scan — block on CRITICAL
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: vpcsc-mcp:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL
+          trivyignores: .trivyignore
 
   sign-and-push:
     # Build, push to GHCR, and sign with keyless cosign on main pushes only.

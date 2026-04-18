@@ -1,0 +1,11 @@
+# Trivy ignore file — justified exceptions only.
+# Format: CVE-YYYY-NNNNN  # <justification> — <owner> — <review date>
+#
+# Policy (framework §12.3):
+# - Only CVEs with no upstream fix AND a documented compensating control may
+#   live here. Anything with a fix upstream must be remediated, not ignored.
+# - Each entry MUST be reviewed quarterly. Expired entries are dropped.
+# - Base-image CVEs (Debian) are fixed by `apt-get upgrade` in the Dockerfile,
+#   not by adding lines here.
+#
+# Add entries only via PR with security review.
