@@ -84,7 +84,7 @@ jobs:
         run: docker build -t vpcsc-mcp:${{ github.sha }} .
 
       - name: Trivy container scan
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: vpcsc-mcp:${{ github.sha }}
           format: sarif
