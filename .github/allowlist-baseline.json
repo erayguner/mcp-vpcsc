@@ -1,0 +1,26 @@
+{
+  "flags": [
+    "--add-resources",
+    "--add-restricted-services",
+    "--enabled",
+    "--format",
+    "--freshness",
+    "--limit",
+    "--organization",
+    "--policy",
+    "--project",
+    "--remove-resources",
+    "--remove-restricted-services"
+  ],
+  "subcommands": [
+    "access-context-manager",
+    "compute",
+    "config",
+    "iam",
+    "logging",
+    "org-policies",
+    "organizations",
+    "projects",
+    "services"
+  ]
+}

@@ -112,13 +112,32 @@ variable "deletion_protection" {
 
 variable "enable_binary_authorization" {
   type        = bool
-  description = "Enable Binary Authorization to verify container images before deployment"
-  default     = false
+  description = "Enable Binary Authorization to verify container images before deployment (framework §12.3)"
+  default     = true
 }
 
 variable "immutable_tags" {
   type        = bool
   description = "Prevent overwriting container image tags in Artifact Registry (supply chain security)"
+  default     = true
+}
+
+variable "binauthz_attestor_note_id" {
+  type        = string
+  description = "Container Analysis note ID for the signing attestor. Created if enable_binary_authorization=true."
+  default     = "vpcsc-mcp-attestor-note"
+}
+
+variable "binauthz_cosign_public_key_pem" {
+  type        = string
+  description = "Cosign keyless / key-backed public key PEM that signed the image. Required when enable_binary_authorization=true and use_default_binauthz_policy=false."
+  default     = ""
+  sensitive   = false
+}
+
+variable "use_default_binauthz_policy" {
+  type        = bool
+  description = "If true, use Google's default binauthz policy (permissive). If false, enforce the cosign attestor policy."
   default     = false
 }
 

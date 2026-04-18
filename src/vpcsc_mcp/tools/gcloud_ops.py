@@ -6,6 +6,8 @@ import logging
 import sys
 import time
 
+from vpcsc_mcp.tools.circuit_breaker import CircuitOpen, gcloud_breaker
+from vpcsc_mcp.tools.halt import check_halt
 from vpcsc_mcp.tools.observability import audit_log, cache, metrics, rate_limiter
 from vpcsc_mcp.tools.safety import sanitise_output, validate_gcloud_args
 
@@ -49,6 +51,36 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
             "command": f"gcloud {' '.join(args)}",
         }
 
+    # Kill-switch — operator may have halted this principal / tool / globally
+    halt = check_halt(tool=tool_name)
+    if halt is not None:
+        _log(f"HALTED scope={halt.scope} reason={halt.reason}")
+        audit_log(
+            tool=tool_name, args=args, success=False, halted=True,
+            error=f"halted:{halt.scope}:{halt.reason}",
+        )
+        return {
+            "error": f"Operation halted by operator (scope={halt.scope}): {halt.reason}",
+            "error_code": "HALTED",
+            "command": f"gcloud {' '.join(args)}",
+        }
+
+    # Circuit breaker — bail fast if gcloud is currently unhealthy
+    try:
+        gcloud_breaker.before_call()
+    except CircuitOpen as exc:
+        _log(f"CIRCUIT OPEN: {exc}")
+        audit_log(
+            tool=tool_name, args=args, success=False,
+            error=f"circuit_open:retry_after={exc.retry_after:.1f}s",
+        )
+        return {
+            "error": f"gcloud circuit breaker open; retry after {exc.retry_after:.1f}s",
+            "error_code": "CIRCUIT_OPEN",
+            "retry_after_seconds": exc.retry_after,
+            "command": f"gcloud {' '.join(args)}",
+        }
+
     # Check cache for read-only operations
     cached_result = cache.get(args, project)
     if cached_result is not None:
@@ -58,7 +90,7 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
         metrics.record(tool_name, elapsed_ms, cached=True)
         return cached_result
 
-    # Rate limiting — wait for a slot
+    # Rate limiting — wait for a slot (per-principal + global)
     acquired = await rate_limiter.acquire(timeout=30.0)
     if not acquired:
         _log(f"RATE LIMITED: gcloud {' '.join(args)}")
@@ -93,6 +125,7 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
             proc.kill()
         except ProcessLookupError:
             pass
+        gcloud_breaker.record_failure()
         audit_log(tool=tool_name, args=args, duration_ms=elapsed_ms, success=False, error="timeout")
         metrics.record(tool_name, elapsed_ms, success=False)
         return {
@@ -109,6 +142,7 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
     if proc.returncode != 0:
         error_msg = stderr.decode().strip()
         _log(f"FAIL: {display_cmd} ({elapsed:.1f}s) — {error_msg[:120]}")
+        gcloud_breaker.record_failure()
         audit_log(tool=tool_name, args=args, duration_ms=elapsed_ms, success=False, error=error_msg[:200])
         metrics.record(tool_name, elapsed_ms, success=False)
         return {
@@ -119,6 +153,7 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
         }
 
     raw = stdout.decode().strip()
+    gcloud_breaker.record_success()
 
     # Sanitise output (prompt injection defence + sensitive data redaction)
     raw = sanitise_output(raw)

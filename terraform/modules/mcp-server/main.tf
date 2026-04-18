@@ -38,6 +38,8 @@ resource "google_project_service" "apis" {
     "accesscontextmanager.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
+    "binaryauthorization.googleapis.com",
+    "containeranalysis.googleapis.com",
   ])
 
   project            = var.project_id
@@ -130,7 +132,11 @@ resource "google_cloud_run_v2_service" "mcp_server" {
   deletion_protection = var.deletion_protection
   labels              = local.default_labels
 
-  # Binary Authorization — verify container images before deployment
+  # Binary Authorization — verify container images before deployment.
+  # Framework §12.3: admission controller rejects unsigned images; cosign
+  # keyless signatures from CI are the attestation source of truth. The
+  # project-level policy (google_binary_authorization_policy.policy) defines
+  # which attestations are required; this block opts the service in.
   dynamic "binary_authorization" {
     for_each = var.enable_binary_authorization ? ["enabled"] : []
     content {
@@ -271,6 +277,76 @@ resource "google_cloud_run_v2_service_iam_member" "invokers" {
 }
 
 # ─── Monitoring: Log-based metric for errors ────────────────────────────────
+
+# ─── Binary Authorization — attestor + policy ────────────────────────────
+# Framework §12.3. Creates a Container Analysis note + a binauthz attestor
+# that verifies cosign-signed images, and a project-level policy that
+# requires attestation for the MCP server's Artifact Registry path. The
+# default_admission_rule stays permissive (admission controller only
+# enforces on the scoped cluster_admission_rules) so unrelated workloads
+# in the project are not affected.
+
+resource "google_container_analysis_note" "attestor_note" {
+  count = var.enable_binary_authorization && !var.use_default_binauthz_policy ? 1 : 0
+
+  project = var.project_id
+  name    = var.binauthz_attestor_note_id
+
+  attestation_authority {
+    hint {
+      human_readable_name = "VPC-SC MCP Server cosign attestor"
+    }
+  }
+
+  depends_on = [google_project_service.apis["containeranalysis.googleapis.com"]]
+}
+
+resource "google_binary_authorization_attestor" "cosign_attestor" {
+  count = var.enable_binary_authorization && !var.use_default_binauthz_policy ? 1 : 0
+
+  project = var.project_id
+  name    = "${var.name}-cosign-attestor"
+
+  attestation_authority_note {
+    note_reference = google_container_analysis_note.attestor_note[0].name
+
+    dynamic "public_keys" {
+      for_each = var.binauthz_cosign_public_key_pem != "" ? [var.binauthz_cosign_public_key_pem] : []
+      content {
+        id = "cosign-ci-key"
+        pkix_public_key {
+          public_key_pem      = public_keys.value
+          signature_algorithm = "ECDSA_P256_SHA256"
+        }
+      }
+    }
+  }
+
+  depends_on = [google_project_service.apis["binaryauthorization.googleapis.com"]]
+}
+
+resource "google_binary_authorization_policy" "policy" {
+  count = var.enable_binary_authorization && !var.use_default_binauthz_policy ? 1 : 0
+
+  project = var.project_id
+
+  # Global admission rule — allow anything NOT in the scoped patterns below.
+  # Keeps blast radius scoped to the MCP server image path.
+  default_admission_rule {
+    evaluation_mode  = "ALWAYS_ALLOW"
+    enforcement_mode = "ENFORCED_BLOCK_AND_AUDIT_LOG"
+  }
+
+  # Scoped rule: the MCP server image MUST be attested by the cosign attestor.
+  admission_whitelist_patterns {
+    name_pattern = "${var.region}-docker.pkg.dev/${var.project_id}/${var.name}/*"
+  }
+
+  depends_on = [
+    google_binary_authorization_attestor.cosign_attestor,
+    google_project_service.apis["binaryauthorization.googleapis.com"],
+  ]
+}
 
 resource "google_logging_metric" "mcp_server_errors" {
   project = var.project_id

@@ -37,10 +37,12 @@ from vpcsc_mcp.tools import (
     register_analysis_tools,
     register_diagnostic_tools,
     register_gcloud_tools,
+    register_halt_tools,
     register_org_policy_tools,
     register_rule_tools,
     register_terraform_tools,
 )
+from vpcsc_mcp.tools.input_filters import filter_text
 
 # Server start time for uptime tracking
 _SERVER_START_TIME: float | None = None
@@ -68,7 +70,17 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[None]:
 
     global _SERVER_START_TIME
     _SERVER_START_TIME = time.monotonic()
-    logger.info("VPC-SC MCP server starting — 40 tools, 6 resources, 3 prompts")
+
+    # Optional OTel metrics exporter — no-op unless VPCSC_MCP_METRICS_EXPORT is set.
+    try:
+        from vpcsc_mcp.tools.metrics_export import install_metrics_exporter
+        from vpcsc_mcp.tools.observability import metrics as _metrics_registry
+        if install_metrics_exporter(_metrics_registry):
+            logger.info("Metrics exporter active")
+    except Exception:
+        logger.exception("metrics exporter install failed; continuing without it")
+
+    logger.info("VPC-SC MCP server starting — 43 tools, 6 resources, 3 prompts")
     yield
     logger.info("VPC-SC MCP server shutting down")
 
@@ -105,6 +117,7 @@ register_analysis_tools(mcp)
 register_rule_tools(mcp)
 register_diagnostic_tools(mcp)
 register_org_policy_tools(mcp)
+register_halt_tools(mcp)
 
 # ---------------------------------------------------------------------------
 # Resources
@@ -176,8 +189,15 @@ def resource_troubleshooting_guide() -> str:
 
 @mcp.resource("vpcsc://server/metrics")
 def resource_server_metrics() -> str:
-    """Server observability metrics — cache stats, rate limiter, tool performance."""
-    from vpcsc_mcp.tools.observability import cache, metrics, rate_limiter
+    """Server observability metrics — cache, rate limiter, breaker, audit, tools, halts."""
+    from vpcsc_mcp.tools.circuit_breaker import gcloud_breaker
+    from vpcsc_mcp.tools.halt import registry as halt_registry
+    from vpcsc_mcp.tools.observability import (
+        cache,
+        get_audit_logger,
+        metrics,
+        rate_limiter,
+    )
 
     uptime = round(time.monotonic() - _SERVER_START_TIME, 1) if _SERVER_START_TIME else 0
     result = {
@@ -186,6 +206,9 @@ def resource_server_metrics() -> str:
         "cache": cache.stats,
         "rate_limiter": rate_limiter.stats,
         "tools": metrics.summary,
+        "breaker": gcloud_breaker.stats,
+        "audit": get_audit_logger().stats(),
+        "halts": halt_registry.list_halts(),
     }
     return json.dumps(result, indent=2)
 
@@ -193,6 +216,18 @@ def resource_server_metrics() -> str:
 # ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
+
+
+def _sanitize_prompt_field(value: str, field_name: str) -> str:
+    """Run a caller-supplied prompt argument through the input filter stack.
+
+    Blocks secrets / prompt-injection by substituting a safe placeholder so the
+    rendered prompt never carries untrusted directives or secrets downstream.
+    """
+    res = filter_text(value, field_name=field_name)
+    if res.blocked:
+        return f"[REJECTED:{field_name}:{res.reason}]"
+    return res.cleaned
 
 
 @mcp.prompt()
@@ -208,6 +243,9 @@ def design_perimeter(
         project_count: Number of GCP projects to protect.
         has_external_access: Whether external users/services need access ('yes' or 'no').
     """
+    workload_description = _sanitize_prompt_field(workload_description, "workload_description")
+    project_count = _sanitize_prompt_field(project_count, "project_count")
+    has_external_access = _sanitize_prompt_field(has_external_access, "has_external_access")
     return [
         base.UserMessage(
             f"I need help designing a VPC Service Controls perimeter for the following setup:\n\n"
@@ -243,6 +281,10 @@ def troubleshoot_denial(
         service_name: The GCP service that was denied (if known).
         caller_identity: The identity that made the request (if known).
     """
+    error_message = _sanitize_prompt_field(error_message, "error_message")
+    service_name = _sanitize_prompt_field(service_name, "service_name") if service_name else ""
+    caller_identity = _sanitize_prompt_field(caller_identity, "caller_identity") if caller_identity else ""
+
     context = f"Error: {error_message}"
     if service_name:
         context += f"\nService: {service_name}"
@@ -277,6 +319,8 @@ def migrate_to_vpcsc(
         project_ids: Comma-separated list of project IDs or numbers to migrate.
         current_services: Comma-separated list of GCP services currently in use (if known).
     """
+    project_ids = _sanitize_prompt_field(project_ids, "project_ids")
+    current_services = _sanitize_prompt_field(current_services, "current_services") if current_services else ""
     return [
         base.UserMessage(
             f"I need to migrate existing GCP projects to VPC Service Controls.\n\n"
@@ -307,15 +351,29 @@ try:
 
     @mcp.custom_route("/health", methods=["GET"])
     async def health_check(request: Request) -> JSONResponse:
-        """Health check for Cloud Run and load balancers."""
-        return JSONResponse({
-            "status": "ok",
+        """Health check for Cloud Run and load balancers.
+
+        Returns 503 if the gcloud circuit breaker is open or any halt is active
+        (governance-plane failure per framework §9.4 / §13.4).
+        """
+        from vpcsc_mcp.tools.circuit_breaker import BreakerState, gcloud_breaker
+        from vpcsc_mcp.tools.halt import registry as halt_registry
+
+        halts = halt_registry.list_halts()
+        breaker_state = gcloud_breaker.state
+        degraded = breaker_state is BreakerState.OPEN or bool(halts)
+
+        payload = {
+            "status": "degraded" if degraded else "ok",
             "server": "vpcsc-mcp",
             "version": "0.1.0",
-            "tools": 40,
+            "tools": 43,
             "resources": 6,
             "prompts": 3,
-        })
+            "breaker": breaker_state.value,
+            "active_halts": len(halts),
+        }
+        return JSONResponse(payload, status_code=503 if degraded else 200)
 except ImportError:
     pass  # starlette not available in minimal installs
 
