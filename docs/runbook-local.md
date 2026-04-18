@@ -160,4 +160,7 @@ python examples/adk-agent/run_agent.py "Recommend services for an AI/ML perimete
 | `gcloud CLI not found` warning at startup | Install gcloud: https://cloud.google.com/sdk/docs/install |
 | ADK agent fails to connect | Check `.env` has a valid `GOOGLE_API_KEY` or Vertex AI config |
 | `mcp` version conflict | Pin with `uv add "mcp>=1.26.0,<2"` or check `pyproject.toml` constraints |
-| `BLOCKED: Flag 'X' is not in the allowed list` | The server rejects unknown gcloud flags for security. Only 11 flags are permitted. |
+| `BLOCKED: Flag 'X' is not in the allowed list` | The server rejects unknown gcloud flags for security. Only 12 flags are permitted. |
+| `HALTED` with `scope=...` | An operator engaged the kill-switch. Call `list_active_halts` via the MCP; `resume_session(scope=...)` to lift |
+| `CIRCUIT_OPEN` with `retry_after_seconds` | gcloud circuit breaker tripped (5 consecutive failures). Respect the retry-after; breaker recovers automatically after cool-off |
+| `AuditChainError` on startup | The on-disk audit log has been tampered with or corrupted. Treat as a security incident — preserve the file and start a new audit directory only after forensic capture |

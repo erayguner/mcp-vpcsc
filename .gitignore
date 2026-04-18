@@ -32,8 +32,17 @@ venv/
 htmlcov/
 .coverage
 
-# ADK sessions
+# ADK sessions and audit artifacts
 sessions.db
+session.db
+.adk/
+audit-*.jsonl
+
+# Claude Flow / swarm local state
+.claude-flow/
+.claude/
+.swarm/
+.mcp.json
 
 # OS
 .DS_Store

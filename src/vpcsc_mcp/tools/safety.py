@@ -138,6 +138,7 @@ ALLOWED_FLAGS = frozenset({
     "--add-resources",
     "--add-restricted-services",
     "--enabled",
+    "--etag",
     "--format",
     "--freshness",
     "--limit",

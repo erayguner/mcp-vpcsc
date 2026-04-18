@@ -18,6 +18,10 @@ This document explains the core VPC Service Controls concepts and how the MCP se
   - [Dry-run mode](#dry-run-mode)
   - [Method selectors](#method-selectors)
   - [Method exceptions](#method-exceptions)
+  - [Scoped access policies](#scoped-access-policies)
+  - [Roles-based ingress and egress](#roles-based-ingress-and-egress)
+  - [External resources (BigQuery Omni)](#external-resources-bigquery-omni)
+  - [Source restriction](#source-restriction)
 - [How the concepts connect](#how-the-concepts-connect)
 - [How the MCP maps to each concept](#how-the-mcp-maps-to-each-concept)
 - [Common terminology quick reference](#common-terminology-quick-reference)
@@ -39,7 +43,7 @@ VPC Service Controls create a **security boundary** (called a *perimeter*) aroun
 
 Think of it as a firewall for Google Cloud APIs. IAM controls *who* can access resources; VPC-SC controls *from where* and *to where* data can flow.
 
-**Where the MCP fits:** Setting up VPC-SC correctly requires understanding multiple interrelated concepts, navigating complex gcloud commands, writing Terraform configurations, and troubleshooting cryptic violation codes. The MCP server provides 40 tools that automate these tasks — scanning your project, generating configurations, explaining violations, and recommending the right services to protect.
+**Where the MCP fits:** Setting up VPC-SC correctly requires understanding multiple interrelated concepts, navigating complex gcloud commands, writing Terraform configurations, and troubleshooting cryptic violation codes. The MCP server provides 43 tools (40 VPC-SC operations + 3 operator halt/resume/status) that automate these tasks — scanning your project, generating configurations, explaining violations, and recommending the right services to protect.
 
 ---
 
@@ -200,11 +204,19 @@ Dry-run mode lets you test a perimeter configuration without blocking any reques
 5. Continue monitoring after enforcement
 
 **MCP tools:**
-- `generate_perimeter_terraform(dry_run=True)` — generates HCL with a `spec` block (dry-run)
+- `generate_perimeter_terraform(dry_run=True)` — generates HCL with a `spec` block (dry-run) and `use_explicit_dry_run_spec = true`
 - `generate_perimeter_terraform(dry_run=False)` — generates HCL with a `status` block (enforced)
-- `dry_run_status(policy_id)` — shows perimeters that have pending dry-run configurations
-- `check_vpc_sc_violations(project_id)` — queries audit logs for recent violations (works in both modes)
+- `list_dry_run_perimeters(policy_id)` — list perimeters with dry-run configurations and their status (Inherited / Modified / New / Deleted)
+- `enforce_dry_run_perimeter(policy_id, perimeter_name, confirm=True)` — promote one perimeter's dry-run spec → enforced status (write, confirm=True required)
+- `enforce_all_dry_run_perimeters(policy_id, etag=..., confirm=True)` — commit every modified dry-run config in the policy atomically; pass the policy `etag` to guard against concurrent edits
+- `dry_run_status(policy_id)` — legacy alias — shows perimeters with pending dry-run configurations
+- `check_vpc_sc_violations(project_id)` — queries audit logs for recent violations (both modes; `metadata.dryRun=true` indicates dry-run-only violations)
 - `diagnose_project()` — includes violation scanning as part of the full diagnostic
+
+**Semantics you need to know:**
+- Dry-run inherits from enforced by default. A perimeter's dry-run config is marked **Modified** the first time it's edited; only Modified perimeters can be enforced.
+- Dry-run mode only logs requests that would be **newly** denied — requests already blocked by the enforced config are not re-logged.
+- Access levels do **not** have a dry-run. To test an access-level change, create a new access level and attach it to the perimeter's dry-run config.
 
 ### Method selectors
 
@@ -232,6 +244,59 @@ Some API methods are **not controllable** by VPC Service Controls. These methods
 - They exist across services like Cloud Build, GKE, IAM, and others
 
 **Why this matters for planning:** When designing your perimeter, review the [method exceptions list](https://docs.cloud.google.com/vpc-service-controls/docs/method-exceptions) for your services. If a critical data path uses an excepted method, you need IAM and network controls instead of (or in addition to) VPC-SC.
+
+### Scoped access policies
+
+An organisation has exactly one org-level access policy, but you can create additional **scoped access policies** bound to a specific folder or project. Scoped policies delegate perimeter and access-level management to folder/project administrators without giving them org-level power.
+
+- Up to 50-char alphanumeric name, unique within the org
+- Scope is a single folder or project — cannot be changed after creation
+- Administrators see only their scoped policy; cannot create new policies or reassign scope
+- Org-level policy must exist first, or scoped policies won't operate
+- Deleting the folder/project also deletes the scoped policy
+
+**Typical use:** a large org lets the "platform" team own the org-level policy while each business unit owns a scoped policy for its folder, managing perimeters around its own projects.
+
+**MCP tools:** `list_access_policies()` returns both org-level and scoped policies (filter client-side by the `scope` field on each policy). The perimeter / access-level tools work against a scoped policy exactly the same as org-level — pass the scoped policy's numeric ID as `policy_id`.
+
+### Roles-based ingress and egress
+
+In addition to `operations` (service + method/permission selectors), an ingress or egress rule's `ingressTo` / `egressTo` can specify a list of **IAM roles**. The caller satisfying the `ingressFrom` / `egressFrom` block is allowed to exercise those roles against the perimeter's resources.
+
+- Use one of `operations` OR `roles` per rule (not both).
+- `roles` is simpler than enumerating every method — attach a role like `roles/bigquery.dataViewer` and the rule permits every API method that role grants.
+- Roles format: `roles/SERVICE.ROLE` or `organizations/ORG_ID/roles/NAME` or `projects/PROJECT_ID/roles/NAME`.
+- Only supported roles/services work — see the [supported products](https://docs.cloud.google.com/vpc-service-controls/docs/configure-iam-roles#supported-products) list.
+
+**MCP tools:**
+- `generate_ingress_yaml(..., roles=['roles/bigquery.dataViewer'])`
+- `generate_egress_yaml(..., roles=['roles/storage.objectViewer'])`
+- `generate_ingress_policy_terraform(..., roles=[...])`
+- `generate_egress_policy_terraform(..., roles=[...])`
+
+### External resources (BigQuery Omni)
+
+Egress rules can target non-GCP storage via `externalResources` — specifically BigQuery Omni sources:
+
+- **Amazon S3**: `s3://BUCKET_NAME`
+- **Azure Blob Storage**: `azure://myaccount.blob.core.windows.net/CONTAINER_NAME`
+
+Wildcards are not allowed. The egress rule still specifies a `serviceName` (BigQuery) and the BigQuery methods that invoke the external resource. When you set `externalResources`, you cannot also set `resources` on the same `egressTo` block — they are mutually exclusive.
+
+**MCP tools:**
+- `generate_egress_yaml(..., external_resources=['s3://my-bucket'])`
+- `generate_egress_policy_terraform(..., external_resources=[...])`
+
+### Source restriction
+
+By default, an egress rule applies to every identity and project inside the perimeter. With `sourceRestriction` set to `SOURCE_RESTRICTION_ENABLED`, you can limit the rule to specific **source projects** or specific **access levels** within the perimeter. This lets you write per-workload egress rules rather than perimeter-wide ones.
+
+- `egressFrom.sources[]` can contain `resource` (project inside the perimeter) or `accessLevel`
+- `sources` and `identityType` are evaluated as AND (both must match)
+- `accessLevel` within `sources` and `resource` within `sources` are evaluated as OR
+- Ignored unless `sourceRestriction: SOURCE_RESTRICTION_ENABLED` is set
+
+**MCP tools:** the YAML/Terraform egress generators expose `source_project_numbers` and `source_access_level` — when either is set, `sourceRestriction` is enabled automatically.
 
 ---
 
@@ -275,7 +340,12 @@ Organisation
 | **Add ingress rules** | Allow specific external access into the perimeter | `generate_ingress_yaml`, `generate_ingress_policy_terraform`, `get_ingress_pattern` |
 | **Add egress rules** | Allow specific internal access out of the perimeter | `generate_egress_yaml`, `generate_egress_policy_terraform`, `get_egress_pattern` |
 | **Create bridges** | Connect two perimeters for cross-team data sharing | `generate_bridge_terraform` |
-| **Test with dry-run** | Deploy perimeter without enforcement | `generate_perimeter_terraform(dry_run=True)`, `dry_run_status`, `check_vpc_sc_violations` |
+| **Test with dry-run** | Deploy perimeter without enforcement | `generate_perimeter_terraform(dry_run=True)`, `list_dry_run_perimeters`, `dry_run_status`, `check_vpc_sc_violations` |
+| **Promote dry-run to enforced** | Commit dry-run spec → status after review | `enforce_dry_run_perimeter`, `enforce_all_dry_run_perimeters` |
+| **Grant roles instead of methods** | Use `roles=[...]` to allow whole IAM roles in an ingress/egress rule | `generate_ingress_yaml(roles=...)`, `generate_egress_yaml(roles=...)`, Terraform equivalents |
+| **Target BigQuery Omni (S3/Azure)** | Egress to `externalResources` outside GCP | `generate_egress_yaml(external_resources=...)`, `generate_egress_policy_terraform(external_resources=...)` |
+| **Scope egress to specific source projects** | Use `sourceRestriction` + `sources` inside `egressFrom` | `generate_egress_yaml(source_project_numbers=..., source_access_level=...)` — `SOURCE_RESTRICTION_ENABLED` is added automatically |
+| **Halt operator actions in an incident** | Kill-switch that blocks gcloud tool calls in-flight | `halt_session`, `resume_session`, `list_active_halts` |
 | **Troubleshoot violations** | Understand why a request was denied | `troubleshoot_violation`, `check_vpc_sc_violations` |
 | **Get method selectors right** | Use the correct method/permission format per service | `get_method_selectors`, `explain_method_selector_types` |
 | **Validate before applying** | Check generated Terraform is syntactically valid | `validate_terraform` |
@@ -305,6 +375,12 @@ Organisation
 | **`status` block** | The Terraform block for enforced configuration |
 | **`projects/NUMBER`** | How projects are referenced in perimeters — always use project **numbers**, not IDs |
 | **`*.googleapis.com`** | Service name format — e.g., `bigquery.googleapis.com` |
+| **Scoped policy** | An access policy bound to a folder or project rather than the whole org |
+| **`sourceRestriction`** | Egress attribute that limits a rule to specific source projects / access levels inside the perimeter |
+| **`externalResources`** | Egress target outside GCP — BigQuery Omni S3/Azure destinations only |
+| **Roles-based rule** | Ingress/egress `ingressTo.roles` / `egressTo.roles` list that grants whole IAM roles in place of per-method selectors |
+| **`useExplicitDryRunSpec`** | Perimeter flag that decouples the dry-run `spec` from the enforced `status`; required to have a `spec` that doesn't mirror `status` |
+| **`etag`** | Access policy version token; pass to `enforce_all_dry_run_perimeters` to guard against concurrent edits |
 
 ---
 
@@ -312,5 +388,5 @@ Organisation
 
 - [Getting Started](getting-started.md) — install and run your first diagnostic
 - [Use Cases](use-cases.md) — practical scenarios showing the MCP in action
-- [MCP Server Guide](mcp-server-guide.md) — full reference for all 40 tools
+- [MCP Server Guide](mcp-server-guide.md) — full reference for all 43 tools
 - [Security](security.md) — how the MCP server protects your environment

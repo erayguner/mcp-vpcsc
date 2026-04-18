@@ -362,15 +362,21 @@ Layer 6: Infrastructure
 vpcsc-mcp/
 ├── src/vpcsc_mcp/
 │   ├── __init__.py              3 lines   Package version
-│   ├── server.py              305 lines   FastMCP server, lifespan, health, resources, prompts, entry point
+│   ├── server.py              417 lines   FastMCP server, lifespan, health (w/ breaker+halt 503), resources, prompts, input-filtered prompts, entry point
 │   ├── tools/
-│   │   ├── __init__.py          1 line
-│   │   ├── gcloud_ops.py     464 lines   run_gcloud(), allowlist, 9 gcloud tools
-│   │   ├── terraform_gen.py  643 lines   HCL generators, input validation, validate_terraform
-│   │   ├── analysis.py      ~430 lines   Troubleshoot, recommend, validate, analyse, explain selectors
-│   │   ├── rule_gen.py       251 lines   YAML generators, pattern library
-│   │   ├── diagnostic.py     813 lines   diagnose_project, generate_implementation_guide
-│   │   └── safety.py          75 lines   Annotation presets, sanitise_output
+│   │   ├── __init__.py         19 lines
+│   │   ├── gcloud_ops.py     734 lines   run_gcloud(), 14 gcloud tools (incl. dry-run enforce)
+│   │   ├── terraform_gen.py 1050 lines   HCL generators (roles, sourceRestriction, externalResources, standalone policies), validate_terraform
+│   │   ├── analysis.py       568 lines   Troubleshoot, recommend, validate, analyse, explain selectors
+│   │   ├── rule_gen.py       303 lines   YAML generators (roles, externalResources, sourceRestriction), pattern library
+│   │   ├── diagnostic.py     830 lines   diagnose_project, generate_implementation_guide
+│   │   ├── org_policy.py     269 lines   diagnose_org_policies, generate_org_policy_terraform
+│   │   ├── safety.py         178 lines   Annotation presets, allowlist (9 subcmds, 12 flags), sanitise_output
+│   │   ├── input_filters.py  216 lines   Caller-arg filter — PII redact, secret block, prompt-injection block
+│   │   ├── observability.py  623 lines   AuditLogger (chained/HMAC/DLQ), GcloudCache, per-principal RateLimiter, ToolMetrics
+│   │   ├── circuit_breaker.py 153 lines  CLOSED / OPEN / HALF_OPEN breaker around gcloud
+│   │   ├── halt.py           165 lines   HaltRegistry + halt_session / resume_session / list_active_halts
+│   │   └── metrics_export.py 103 lines   Optional OTel → Cloud Monitoring exporter (env-gated)
 │   └── data/
 │       ├── __init__.py          1 line
 │       ├── services.py      ~600 lines   216 services, 7 workloads, 10 method selector sets
@@ -386,12 +392,16 @@ vpcsc-mcp/
 │       ├── outputs.tf                     Module outputs
 │       └── versions.tf                    Provider constraints
 ├── examples/
-│   ├── adk-agent/                         Single ADK agent (40 tools)
+│   ├── adk-agent/                         Single ADK agent (43 tools)
 │   └── adk-multi-agent/                   4 specialists + coordinator
 ├── tests/
 │   ├── test_server.py                     33 tests (data, resources, server)
 │   ├── test_observability.py              17 tests (cache, rate limit, metrics, audit)
-│   └── test_safety.py                     15 tests (redaction, sanitisation, validation)
+│   ├── test_safety.py                     15 tests (redaction, sanitisation, validation)
+│   ├── test_audit_chain.py                 8 tests (chained audit, DLQ, signed export)
+│   ├── test_input_filters.py              16 tests (PII redaction, secret blocking, prompt-injection)
+│   ├── test_halt.py                        7 tests (kill-switch scopes, resume, list)
+│   └── test_circuit_breaker.py             6 tests (CLOSED / OPEN / HALF_OPEN transitions)
 ├── docs/
 │   ├── concepts.md                        VPC-SC concepts and how the MCP maps to each
 │   ├── use-cases.md                       8 practical scenarios with MCP walkthroughs

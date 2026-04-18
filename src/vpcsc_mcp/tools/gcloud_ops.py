@@ -561,6 +561,128 @@ def register_gcloud_tools(mcp) -> None:
             return f"Error updating perimeter: {result['error']}"
         return f"Successfully updated perimeter {perimeter_name}.\n" + "\n".join(changes)
 
+    @mcp.tool(annotations=READONLY_GCP)
+    async def list_dry_run_perimeters(policy_id: str) -> str:
+        """List the effective dry-run configuration across all service perimeters.
+
+        Shows each perimeter's dry-run config status (Inherited / Modified /
+        New / Deleted). Use this before enforce_dry_run_perimeter to confirm
+        a perimeter has an explicit dry-run spec ready to promote.
+
+        Args:
+            policy_id: The access policy ID (numeric).
+        """
+        result = await run_gcloud([
+            "access-context-manager", "perimeters", "dry-run", "list",
+            f"--policy={policy_id}",
+        ])
+        if "error" in result:
+            return f"Error listing dry-run configs: {result['error']}"
+        entries = result.get("result", result.get("result_text", []))
+        if not entries:
+            return f"No dry-run perimeter configurations in policy {policy_id}."
+        if isinstance(entries, str):
+            return entries
+        lines = [f"Dry-run perimeter configurations in policy {policy_id}:\n"]
+        for e in entries:
+            name = e.get("name", "unknown").split("/")[-1] if isinstance(e, dict) else str(e)
+            lines.append(f"  - {name}")
+        lines.append(
+            "\nUse enforce_dry_run_perimeter(perimeter_name=...) to promote a\n"
+            "single perimeter's dry-run spec, or enforce_all_dry_run_perimeters\n"
+            "to commit all modified perimeters atomically.",
+        )
+        return "\n".join(lines)
+
+    @mcp.tool(annotations=WRITE_GCP)
+    async def enforce_dry_run_perimeter(
+        policy_id: str,
+        perimeter_name: str,
+        confirm: bool = False,
+    ) -> str:
+        """Promote a perimeter's dry-run spec to its enforced status.
+
+        WRITE OPERATION — changes the live enforcement posture of a perimeter.
+        Copies spec → status and clears useExplicitDryRunSpec. Fails if the
+        perimeter has no explicit dry-run configuration or if the dry-run
+        config is incompatible with the rest of the policy.
+
+        Args:
+            policy_id: The access policy ID (numeric).
+            perimeter_name: The perimeter name (short form, not full resource path).
+            confirm: Must be True to execute. Preview-only when False.
+        """
+        if not confirm:
+            _log(f"PREVIEW: enforce_dry_run_perimeter({perimeter_name}) — confirm=False")
+            return (
+                f"PREVIEW — This will PROMOTE dry-run spec → enforced status for\n"
+                f"perimeter '{perimeter_name}' in policy {policy_id}.\n\n"
+                f"Before confirming:\n"
+                f"  1. Review dry-run audit logs via check_vpc_sc_violations (dryRun=true)\n"
+                f"  2. Ensure no unexpected violations remain\n"
+                f"  3. Coordinate with perimeter owners — this is irreversible\n\n"
+                f"Set confirm=True to execute."
+            )
+
+        _log(f"WRITE: enforce_dry_run_perimeter({perimeter_name}) — confirm=True, executing")
+        result = await run_gcloud([
+            "access-context-manager", "perimeters", "dry-run", "enforce",
+            perimeter_name,
+            f"--policy={policy_id}",
+        ])
+        if "error" in result:
+            return f"Error enforcing dry-run config: {result['error']}"
+        return (
+            f"Successfully enforced dry-run configuration for perimeter {perimeter_name}.\n"
+            f"Note: changes may take up to 30 minutes to propagate."
+        )
+
+    @mcp.tool(annotations=WRITE_GCP)
+    async def enforce_all_dry_run_perimeters(
+        policy_id: str,
+        etag: str | None = None,
+        confirm: bool = False,
+    ) -> str:
+        """Promote dry-run spec → enforced status for ALL modified perimeters in a policy.
+
+        WRITE OPERATION — atomic commit across every perimeter in the policy
+        that has a modified dry-run spec. Fails the whole operation if any
+        perimeter's dry-run config is incompatible. Optionally gate the
+        operation on an etag to detect concurrent policy modifications.
+
+        Args:
+            policy_id: The access policy ID (numeric).
+            etag: Optional access-policy etag — fails if the policy has changed
+                since this etag was read (list_access_policies returns etags).
+            confirm: Must be True to execute. Preview-only when False.
+        """
+        if not confirm:
+            _log("PREVIEW: enforce_all_dry_run_perimeters — confirm=False")
+            return (
+                f"PREVIEW — This will promote dry-run → enforced for every modified\n"
+                f"perimeter in policy {policy_id}.\n\n"
+                f"CAUTION: this is an ORG-WIDE change. Coordinate with every team\n"
+                f"that owns perimeters in this policy before proceeding. Any single\n"
+                f"perimeter failing will abort the whole operation.\n\n"
+                f"Set confirm=True to execute."
+            )
+
+        _log("WRITE: enforce_all_dry_run_perimeters — confirm=True, executing")
+        args = [
+            "access-context-manager", "perimeters", "dry-run", "enforce-all",
+            f"--policy={policy_id}",
+        ]
+        if etag:
+            args.append(f"--etag={etag}")
+        result = await run_gcloud(args)
+        if "error" in result:
+            return f"Error enforcing dry-run configs: {result['error']}"
+        return (
+            f"Successfully enforced dry-run configurations for all modified\n"
+            f"perimeters in policy {policy_id}. Changes may take up to 30 minutes\n"
+            f"to propagate."
+        )
+
     @mcp.tool(annotations=WRITE_GCP)
     async def update_perimeter_services(
         policy_id: str,

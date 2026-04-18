@@ -4,7 +4,7 @@
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP SDK](https://img.shields.io/badge/MCP_SDK-1.26.0-green.svg)](https://pypi.org/project/mcp/)
-[![Tools](https://img.shields.io/badge/tools-40-brightgreen.svg)](docs/mcp-server-guide.md)
+[![Tools](https://img.shields.io/badge/tools-43-brightgreen.svg)](docs/mcp-server-guide.md)
 [![GCP Services](https://img.shields.io/badge/GCP_services-216-informational.svg)](src/vpcsc_mcp/data/services.py)
 [![Ruff](https://img.shields.io/badge/linting-ruff-orange.svg)](https://docs.astral.sh/ruff/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
@@ -28,7 +28,7 @@ Google Cloud IAM controls *who* can access resources. But it doesn't control *wh
 
 ## How this MCP helps
 
-This server gives you (or your AI agent) 40 tools that automate the hard parts:
+This server gives you (or your AI agent) 43 tools that automate the hard parts:
 
 | Instead of... | The MCP does... |
 |---|---|
@@ -47,31 +47,39 @@ This server gives you (or your AI agent) 40 tools that automate the hard parts:
 
 | Category | Tools | Examples |
 |---|---|---|
-| **gcloud operations** | 11 | List perimeters, query audit logs, check dry-run status, update resources/services |
+| **gcloud operations** | 14 | List perimeters, query audit logs, list/enforce dry-run configs, update resources/services |
 | **Terraform generation** | 10 | Generate HCL for perimeters, access levels, bridges, ingress/egress rules, validate output |
 | **Analysis** | 9 | Troubleshoot violations, recommend services by workload, validate identities, explain method selectors, check data freshness |
-| **Rule generation** | 6 | Produce YAML for gcloud, apply pre-built patterns for BigQuery/Storage/Vertex AI |
+| **Rule generation** | 6 | Produce YAML for gcloud (roles / externalResources / sourceRestriction), apply pre-built patterns for BigQuery/Storage/Vertex AI |
 | **VPC-SC diagnostics** | 2 | Project readiness scan with protection gap analysis, implementation guide with Terraform |
 | **Org policy diagnostics** | 2 | Org policy compliance scan (COMPLIANT/NON-COMPLIANT/NOT SET), Terraform generator |
-| **Resources** | 6 | Supported services list, workload guides, common patterns, server metrics |
+| **Operator halt / resume / status** | 3 | Kill-switch — halt all tool calls or a specific principal/tool in under a minute |
+| **Resources** | 6 | Supported services list, workload guides, common patterns, server metrics (cache / breaker / audit / halts) |
 | **Prompts** | 3 | Perimeter design, troubleshoot denial, migration planning |
 
-**40 tools, 6 resources, 3 prompts.** All 40 tools carry MCP `ToolAnnotations` (38 read-only, 2 destructive).
+**43 tools, 6 resources, 3 prompts.** All 43 tools carry MCP `ToolAnnotations` (36 read-only, 4 destructive write, 1 destructive halt, 2 idempotent override).
 
 ## Security and governance
 
-- **Command allowlist** — only 9 gcloud subcommands and 11 gcloud flags permitted
+- **Command allowlist** — only 9 gcloud subcommands and 12 gcloud flags permitted; `allowlist-drift` CI job fails PRs that widen the set without updating the baseline
 - **Argument validation** — shell metacharacters and privilege-escalation flags rejected
-- **Write operations require confirmation** — preview by default, `confirm=True` to execute
+- **Caller-input filter** — secrets (GCP SA, OAuth, GitHub/Slack tokens, AWS keys) and prompt-injection directives are **blocked** in free-text tool args; PII is redacted
+- **Write operations require confirmation** — all 4 write tools preview by default, `confirm=True` to execute
 - **Tool annotations** — every tool declares `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`
 - **Output sanitisation** — strips prompt-injection patterns and redacts private keys/tokens from tool results
-- **Rate limiting** — max 5 concurrent gcloud operations via asyncio semaphore
+- **Per-principal rate limiting** — each caller capped at 3 concurrent gcloud calls + shared global cap of 5
+- **Circuit breaker** — opens after 5 consecutive gcloud failures; `/health` reports breaker state and returns 503 when open
+- **Kill-switch** — `halt_session` tool halts in-flight calls in <1 min without restart; scoped `global` / `principal:<id>` / `tool:<name>`
+- **Chained audit log** — every tool call / halt / override carries SHA-256 chain + HMAC daily manifest; strict chain verification on load; `export_signed` for forensic bundles
+- **Dead-letter queue** — audit writes that fail transiently land in a replayable DLQ, not lost
 - **Result caching** — read-only gcloud queries cached for 5 minutes to prevent redundant calls
-- **Structured audit logging** — every tool invocation logged as JSON with tool name, args, duration, status
 - **Non-root container** — runs as UID 1001
 - **Read-only SA** — no write roles for Access Context Manager
+- **Binary Authorization + cosign signing** — Cloud Run module provisions attestor + scoped policy; CI signs images keyless and pushes SLSA provenance attestations; unsigned images rejected on admission
+- **Immutable AR tags, Trivy container scan, tflint + tfsec** — supply-chain gates in CI
+- **Optional OTel Cloud Monitoring exporter** — per-tool / per-principal call metrics
 - **Lifespan checks** — validates gcloud CLI at startup; graceful shutdown on SIGTERM
-- **Health endpoint** — `/health` for Cloud Run probes
+- **Health endpoint** — `/health` returns 503 when breaker is open or any halt is active
 - **Localhost binding** — HTTP transport binds to 127.0.0.1 locally; 0.0.0.0 only on Cloud Run
 - **120s command timeout** — hung gcloud processes killed automatically
 
@@ -99,7 +107,7 @@ terraform/                  Cloud Run deployment (Terraform >= 1.14, Google prov
   modules/mcp-server/       Reusable module: Cloud Run + SA + Artifact Registry + IAM + monitoring
 
 examples/
-  adk-agent/                Google ADK single agent (all 40 tools)
+  adk-agent/                Google ADK single agent (all 43 tools)
   adk-multi-agent/          Google ADK multi-agent (4 specialists + coordinator)
 
 scripts/
@@ -146,7 +154,8 @@ cloudbuild.yaml             CI/CD: build, push, deploy
 |---|---|
 | [VPC-SC Concepts](docs/concepts.md) | What VPC-SC solves, core concepts (perimeters, access levels, ingress/egress, dry-run), how the MCP maps to each |
 | [Use Cases](docs/use-cases.md) | 8 practical scenarios: project assessment, new perimeters, troubleshooting, CI/CD, partner access, compliance, migration, cross-perimeter sharing |
-| [MCP Server Guide](docs/mcp-server-guide.md) | All 40 tools, validation rules, Terraform module patterns, end-to-end examples |
+| [MCP Server Guide](docs/mcp-server-guide.md) | All 43 tools, validation rules, Terraform module patterns, end-to-end examples |
+| [Agent Governance Framework](AGENT_GOVERNANCE_FRAMEWORK.md) | The standard this server implements: tool governor, chained audit, approvals, kill-switch, supply chain |
 | [Security](docs/security.md) | Threat model, command allowlists, tool annotations, governance controls |
 | [Architecture](docs/architecture.md) | Component diagrams, data flows, deployment patterns, design decisions |
 

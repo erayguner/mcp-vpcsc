@@ -206,7 +206,7 @@ Add to `~/.gemini/settings.json`:
 
 ## What the server does
 
-Once connected, you have 40 tools, 6 resources, and 3 prompts that cover the full VPC-SC lifecycle:
+Once connected, you have 43 tools, 6 resources, and 3 prompts that cover the full VPC-SC lifecycle:
 
 | Action | Example command | What it does |
 |---|---|---|
@@ -244,7 +244,8 @@ Whether you're new to VPC-SC or adding a new project to an existing perimeter, f
                    → check_vpc_sc_violations (run daily)
 
 7. ENFORCE         Switch from dry-run to enforced mode
-                   → Update Terraform from spec block to status block
+                   → enforce_dry_run_perimeter (single) or enforce_all_dry_run_perimeters
+                     (atomic commit across the policy, protected by --etag)
 
 8. MAINTAIN        Ongoing monitoring and compliance
                    → diagnose_project + diagnose_org_policies periodically
@@ -258,7 +259,7 @@ See [Use Cases](use-cases.md) for detailed walkthroughs of each step in common s
 |---|---|
 | VPC-SC concepts explained | [Concepts](concepts.md) |
 | Practical scenarios | [Use Cases](use-cases.md) |
-| All 40 tools explained | [MCP Server Guide](mcp-server-guide.md) |
+| All 43 tools explained | [MCP Server Guide](mcp-server-guide.md) |
 | Security controls | [Security](security.md) |
 | Architecture | [Architecture](architecture.md) |
 | Cloud Run deployment details | [Runbook: Cloud Run](runbook-cloud-run.md) |
