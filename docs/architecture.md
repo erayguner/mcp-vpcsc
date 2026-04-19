@@ -97,8 +97,8 @@ Each module registers its tools via a `register_*_tools(mcp)` function. This kee
 
 | Module | Content | Mutability |
 |---|---|---|
-| `services.py` (~400 lines) | 216 supported services, 7 workload recommendations, 10 services with method selectors | Static — loaded at import time |
-| `patterns.py` (~450 lines) | 7 ingress patterns, 7 egress patterns, 6 troubleshooting guides | Static — loaded at import time |
+| `services.py` (~400 lines) | 219 supported services, 7 workload recommendations, 10 services with method selectors | Static — loaded at import time |
+| `patterns.py` (~450 lines) | 7 ingress patterns, 7 egress patterns, 7 troubleshooting guides | Static — loaded at import time |
 
 ### Security layer (`safety.py`)
 
@@ -379,8 +379,8 @@ vpcsc-mcp/
 │   │   └── metrics_export.py 103 lines   Optional OTel → Cloud Monitoring exporter (env-gated)
 │   └── data/
 │       ├── __init__.py          1 line
-│       ├── services.py      ~600 lines   216 services, 7 workloads, 10 method selector sets
-│       └── patterns.py      ~450 lines   7 ingress + 7 egress patterns, 6 troubleshooting guides
+│       ├── services.py      ~600 lines   219 services, 7 workloads, 10 method selector sets
+│       └── patterns.py      ~450 lines   7 ingress + 7 egress patterns, 7 troubleshooting guides
 ├── terraform/
 │   ├── main.tf                            Root config
 │   ├── variables.tf                       Input variables

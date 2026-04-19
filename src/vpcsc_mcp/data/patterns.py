@@ -457,6 +457,8 @@ TROUBLESHOOTING_GUIDE: dict[str, dict] = {
             "selectors (or vice versa) — the rule silently fails to match",
             "A new API method was introduced that is not covered by existing selectors",
             "Rule allows read methods but the caller needs write methods",
+            "Rule uses 'roles:' (Preview) but the caller's action is not covered by permissions in "
+            "that role — for Cloud Storage, predefined roles are NOT supported (only custom roles)",
         ],
         "resolution_steps": [
             "1. Check the audit log for the exact method or permission that was denied",
@@ -465,6 +467,28 @@ TROUBLESHOOTING_GUIDE: dict[str, dict] = {
             "Storage/Vertex AI/Pub/Sub use 'method'. Using the wrong type causes silent failures.",
             "4. Update the rule to include the missing method/permission",
             "5. If unsure, temporarily use {'method': '*'} to allow all methods, then narrow down",
+            "6. If using 'roles:' (Preview), verify the role covers all permissions needed — "
+            "Cloud Storage requires storage.objects.delete AND storage.objects.create for insert/write",
+        ],
+    },
+    "BIGQUERY_OMNI_EXTERNAL_RESOURCE": {
+        "meaning": (
+            "A BigQuery Omni query to an external cloud resource (Amazon S3 or Azure Blob Storage) "
+            "was denied because no egress rule permits access to the externalResources path"
+        ),
+        "common_causes": [
+            "No egress rule with 'externalResources' attribute matching the S3/Azure path",
+            "externalResources path format incorrect — must be 's3://BUCKET' or "
+            "'azure://account.blob.core.windows.net/CONTAINER'",
+            "Egress rule uses 'resources: projects/...' instead of 'externalResources' for BigQuery Omni",
+        ],
+        "resolution_steps": [
+            "1. Identify the target S3 bucket or Azure container from the BigQuery query",
+            "2. Add an egress rule with externalResources specifying the exact resource path",
+            "3. For S3: use format 's3://BUCKET_NAME' (no trailing slash)",
+            "4. For Azure: use format 'azure://ACCOUNT.blob.core.windows.net/CONTAINER_NAME'",
+            "5. serviceName in egressTo.operations must be 'bigquery.googleapis.com'",
+            "6. Permission 'externalResource.read' or 'externalResource.write' can be used, or method: '*'",
         ],
     },
 }

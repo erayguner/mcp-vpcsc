@@ -6,7 +6,7 @@ https://cloud.google.com/vpc-service-controls/docs/supported-products
 Use ``gcloud access-context-manager supported-services list`` for the
 live canonical list.  This file is a curated snapshot for offline use.
 
-Last updated: 2026-04-05 (210 products, 216 unique API endpoints)
+Last updated: 2026-04-19 (214 products, 220 unique API endpoints)
 """
 
 # Services confirmed as supporting VPC Service Controls.
@@ -56,6 +56,7 @@ SUPPORTED_SERVICES: dict[str, str] = {
     "configdelivery.googleapis.com": "FleetPackage API",
     "connectgateway.googleapis.com": "Connect Gateway",
     "container.googleapis.com": "Google Kubernetes Engine",
+    "kubernetesmetadata.googleapis.com": "Kubernetes Metadata API (required alongside GKE/Anthos)",
     "containeranalysis.googleapis.com": "Artifact Analysis",
     "containerfilesystem.googleapis.com": "Image Streaming",
     "containerregistry.googleapis.com": "Container Registry (shut down Mar 2025, use Artifact Registry)",
@@ -168,7 +169,8 @@ SUPPORTED_SERVICES: dict[str, str] = {
     "cloudtrace.googleapis.com": "Cloud Trace",
     "logging.googleapis.com": "Cloud Logging",
     "monitoring.googleapis.com": "Cloud Monitoring",
-    "telemetry.googleapis.com": "Telemetry API",
+    "telemetry.googleapis.com": "Telemetry (OTLP) API",
+    "opsconfigmonitoring.googleapis.com": "Config Monitoring for Ops (GDC bare metal)",
     # ── Management ───────────────────────────────────────────────────
     "accessapproval.googleapis.com": "Access Approval",
     "apikeys.googleapis.com": "API Keys",
@@ -233,6 +235,7 @@ SUPPORTED_SERVICES: dict[str, str] = {
     # ── Managed databases / identity ─────────────────────────────────
     "managedidentities.googleapis.com": "Managed Service for Microsoft AD",
     # ── Maps ─────────────────────────────────────────────────────────
+    "addressvalidation.googleapis.com": "Address Validation API",
     "geocoding.googleapis.com": "Geocoding",
     "places.googleapis.com": "Places (New)",
     # ── Mesh & Service Infrastructure ────────────────────────────────
@@ -364,6 +367,7 @@ WORKLOAD_RECOMMENDATIONS: dict[str, dict] = {
         "description": "Microservices (GKE, Cloud Run, Cloud Functions with service mesh)",
         "required": [
             "container.googleapis.com",
+            "kubernetesmetadata.googleapis.com",
             "run.googleapis.com",
             "compute.googleapis.com",
             "storage.googleapis.com",
@@ -384,9 +388,16 @@ WORKLOAD_RECOMMENDATIONS: dict[str, dict] = {
             "monitoring.googleapis.com",
             "vpcaccess.googleapis.com",
             "dns.googleapis.com",
+            "autoscaling.googleapis.com",
         ],
         "notes": [
-            "GKE clusters must use VPC-native (alias IP) mode for VPC-SC compatibility",
+            "GKE clusters must use VPC-native (alias IP) mode; only private clusters "
+            "(or public clusters accessed via the DNS endpoint) can be protected by VPC-SC",
+            "To fully protect the GKE API, include BOTH container.googleapis.com and "
+            "kubernetesmetadata.googleapis.com in the perimeter — GKE DNS endpoints "
+            "(*.gke.goog) are protected when these are restricted",
+            "GKE also depends on Compute Engine, Autoscaling, Cloud Logging, and Cloud "
+            "Monitoring — include all underlying services to effectively secure clusters",
             "Cloud Run and Cloud Functions need Serverless VPC Access connectors for private networking",
             "Binary Authorization verifies container images before deployment — restrict alongside GKE",
             "Cloud Build needs ingress rules to deploy into perimeter projects",

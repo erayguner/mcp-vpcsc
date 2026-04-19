@@ -59,7 +59,7 @@ This server automates the most time-consuming and error-prone parts of working w
 - **It does not manage IAM.** Identity bindings, role grants, and service account creation are out of scope.
 - **It does not replace `terraform plan`.** Generated HCL is a starting point. Always run `terraform validate` and `terraform plan` before applying.
 - **It does not store credentials.** It calls whichever `gcloud` is on your PATH using your active authentication. No tokens are cached or transmitted.
-- **It does not guarantee completeness.** The supported-services list covers 216 commonly used APIs. Newly added GCP services may not be included yet.
+- **It does not guarantee completeness.** The supported-services list covers 219 commonly used APIs. Newly added GCP services may not be included yet.
 
 ---
 
@@ -234,7 +234,7 @@ These tools produce HCL strings. By default they return the HCL as text for you 
 **`diagnose_project` runs 10 steps:**
 
 1. Resolve active project, account, project number, parent org
-2. Scan enabled APIs against 216 known VPC-SC supported services
+2. Scan enabled APIs against 219 known VPC-SC supported services
 3. Flag missing critical APIs (Access Context Manager, Cloud KMS, Secret Manager)
 4. Check organisation and access policy
 5. List existing perimeters — flag which perimeter contains this project
@@ -364,7 +364,7 @@ ORG POLICY COMPLIANCE SUMMARY
 
 | URI | Content |
 |---|---|
-| `vpcsc://services/supported` | Full list of 216 supported services |
+| `vpcsc://services/supported` | Full list of 219 supported services |
 | `vpcsc://workloads/{workload_type}` | Workload recommendations (ai-ml, data-analytics, etc.) |
 | `vpcsc://patterns/ingress` | All ingress patterns as JSON |
 | `vpcsc://patterns/egress` | All egress patterns as JSON |
@@ -888,7 +888,7 @@ The MCP server includes pre-defined method selectors for 10 services: BigQuery, 
 
 ### Supported services list
 
-The built-in list covers 216 commonly used services. GCP regularly adds VPC-SC support for new services. If a service is not found, the `check_service_support` tool will suggest checking the latest documentation.
+The built-in list covers 219 commonly used services. GCP regularly adds VPC-SC support for new services. If a service is not found, the `check_service_support` tool will suggest checking the latest documentation.
 
 ### gcloud authentication
 

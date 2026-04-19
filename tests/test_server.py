@@ -113,6 +113,7 @@ class TestTroubleshootingGuide:
             "ACCESS_DENIED_GENERIC",
             "EGRESS_VIOLATION",
             "METHOD_NOT_ALLOWED",
+            "BIGQUERY_OMNI_EXTERNAL_RESOURCE",
         }
         assert set(TROUBLESHOOTING_GUIDE.keys()) == expected
 
