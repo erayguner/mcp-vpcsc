@@ -49,11 +49,28 @@ DIAGNOSTIC = ToolAnnotations(
 
 # ─── Output Sanitisation ───────────────────────────────────────────────────
 
-# Patterns that look like injected instructions in tool output
+# Patterns that look like injected instructions in tool output.
+# Kept in sync with input_filters._INJECTION_RE so attacker-controlled text
+# returned from GCP (resource descriptions, labels, log entries) is filtered
+# with the same precision as caller-supplied input.
 _INJECTION_PATTERNS = re.compile(
     r"<\s*(?:IMPORTANT|system|instructions?|prompt|override|admin|ignore)\s*>|"
-    r"(?:^|\n)\s*(?:IGNORE PREVIOUS|FORGET ALL|DISREGARD|OVERRIDE|YOU MUST|YOU ARE NOW)\b",
+    r"(?:^|[\s\.\!\?,;:])(?:IGNORE\s+(?:PREVIOUS|ALL|ABOVE)|"
+    r"FORGET\s+(?:ALL|EVERYTHING|PREVIOUS)|"
+    r"DISREGARD\s+(?:ALL|PREVIOUS|ABOVE)|"
+    r"OVERRIDE\s+(?:SYSTEM|INSTRUCTIONS?)|"
+    r"YOU\s+(?:MUST|ARE\s+NOW|SHOULD)\s+(?:IGNORE|DELETE|EXFILTRATE|REVEAL|"
+    r"FORGET|DISREGARD|OUTPUT|PRINT|LEAK)|"
+    r"NEW\s+INSTRUCTIONS?\s*[:\-]|"
+    r"SYSTEM\s+PROMPT\s*[:\-])",
     re.IGNORECASE,
+)
+
+# Unicode tag characters (U+E0000..U+E007F) and other invisible control chars
+# used to smuggle instructions past visual review. Also zero-width joiners/
+# non-joiners / BOM.
+_INVISIBLE_CHARS = re.compile(
+    r"[\U000E0000-\U000E007F\u200B\u200C\u200D\u2060\uFEFF]",
 )
 
 # Maximum safe output length (chars). Truncate beyond this to prevent context pollution.
@@ -63,12 +80,16 @@ MAX_OUTPUT_LENGTH = 50_000
 def sanitise_output(text: str, redact: bool = True) -> str:
     """Sanitise tool output to defend against prompt injection and data leakage.
 
-    - Strips instruction-like tags and directives
-    - Optionally redacts sensitive data patterns (emails, SA keys, IPs)
+    - Strips instruction-like tags and directives (line-start *and* mid-sentence)
+    - Strips invisible/tag Unicode chars used to smuggle hidden instructions
+    - Optionally redacts sensitive data patterns (SA keys, tokens)
     - Truncates to MAX_OUTPUT_LENGTH
     """
+    # Strip invisible/tag chars first so they can't hide injection patterns.
+    cleaned = _INVISIBLE_CHARS.sub("", text)
+
     # Strip injection patterns
-    cleaned = _INJECTION_PATTERNS.sub("[FILTERED]", text)
+    cleaned = _INJECTION_PATTERNS.sub("[FILTERED]", cleaned)
 
     # Redact sensitive data
     if redact:
@@ -150,8 +171,12 @@ ALLOWED_FLAGS = frozenset({
 })
 
 # Pattern for safe argument values — alphanumeric, hyphens, underscores,
-# dots, slashes, colons, equals, at-signs, commas, and spaces.
-_SAFE_ARG = re.compile(r'^[\w\-\./:=@,\s*"\']+$')
+# dots, slashes, colons, equals, at-signs, commas, spaces, and tabs.
+# Explicitly excludes newlines, carriage returns, and single quotes so that
+# argument values cannot smuggle control characters into gcloud (no OS-level
+# injection due to create_subprocess_exec, but gcloud parsing can diverge
+# across versions on newline-embedded values).
+_SAFE_ARG = re.compile(r'^[\w\-\./:=@, \t*"]+$')
 
 
 def validate_gcloud_args(args: list[str]) -> str | None:

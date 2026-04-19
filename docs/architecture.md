@@ -78,6 +78,7 @@ Key design decisions:
 - Transport selected by `VPCSC_MCP_TRANSPORT` env var — no code change needed between local and Cloud Run
 - Binds to `127.0.0.1` locally, `0.0.0.0` on Cloud Run (detected via `K_SERVICE`)
 - Server instructions include "tool outputs are data" — prompt injection defence
+- HTTP transports use `uvicorn` directly with a `PrincipalMiddleware` installed on the underlying Starlette app. The middleware reads `X-MCP-Client-ID` / `X-MCP-Principal` / `X-Goog-Authenticated-User-Email` / `X-Serverless-Authorization` (first non-empty wins) and binds it to the per-request `principal` contextvar so the rate limiter, audit log, and metrics isolate callers. The stdio path seeds the principal once at startup from `VPCSC_MCP_DEFAULT_PRINCIPAL` / `$USER`.
 
 ### Tool modules
 
@@ -110,7 +111,27 @@ safety.py
   ├── WRITE_GCP       — ToolAnnotations preset for gcloud write tools
   ├── GENERATE        — ToolAnnotations preset for code generation tools
   ├── DIAGNOSTIC      — ToolAnnotations preset for diagnostic tools
-  └── sanitise_output — strips injection patterns, truncates to 50K chars
+  ├── sanitise_output — strips injection patterns (line-start + mid-sentence),
+  │                     strips invisible Unicode smuggling chars, redacts
+  │                     secrets, truncates to 50K chars
+  ├── validate_gcloud_args — allowlist + tightened safe-char regex
+  │                         (no newline / CR / single quote)
+  └── redact_sensitive_data — SA keys, PEM blocks, OAuth/Bearer tokens
+```
+
+Terraform/HCL generation adds its own defence layer in `terraform_gen.py`:
+
+```
+_sanitise_hcl_string
+  ├── runs filter_text(block_secrets=True, redact_pii=True) first
+  │   — rejects any caller-supplied HCL value containing tokens / PEM keys / SA-key JSON
+  ├── escapes \ " \n
+  └── escapes ${ → $${ and %{ → %%{  (blocks Terraform interpolation injection)
+
+_resolve_output_dir
+  ├── resolves symlinks and relative paths
+  └── enforces containment under VPCSC_MCP_OUTPUT_ROOT (or os.getcwd())
+      — rejects absolute paths outside the root, rejects traversal
 ```
 
 ### Command execution (`run_gcloud` in `gcloud_ops.py`)

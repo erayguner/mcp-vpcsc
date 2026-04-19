@@ -84,6 +84,32 @@ environment_variables = {
 
 Requires `opentelemetry-sdk` + `opentelemetry-exporter-gcp-monitoring` to be installed in the image. The SA already has `roles/monitoring.metricWriter`.
 
+### Principal extraction (recommended for production)
+
+The per-principal rate limiter, audit log, and metrics key off the caller principal that the `PrincipalMiddleware` extracts from request headers. When the Cloud Run service is invoked behind IAP or with Google-authenticated IAM bindings, `X-Goog-Authenticated-User-Email` is populated automatically — no env var needed. For MCP clients that authenticate by other means, route a stable identifier through `X-MCP-Client-ID` (or `X-MCP-Principal`).
+
+Set a fallback for unmatched requests:
+
+```hcl
+environment_variables = {
+  VPCSC_MCP_DEFAULT_PRINCIPAL = "cloud-run-anonymous"
+}
+```
+
+Header precedence (first non-empty wins): `X-MCP-Client-ID` → `X-MCP-Principal` → `X-Goog-Authenticated-User-Email` → `X-Serverless-Authorization`. Without any of these and without the fallback env var, the principal is `"anonymous"` and the per-principal bucket collapses to a single shared bucket for all callers.
+
+### Generated Terraform file output (if enabled)
+
+When an MCP client invokes a Terraform-generating tool with `project_name` set, the server writes the generated `.tf` to disk. To confine writes, set:
+
+```hcl
+environment_variables = {
+  VPCSC_MCP_OUTPUT_ROOT = "/var/terraform-out"
+}
+```
+
+Paths outside the allowed root (absolute paths, `..` traversal, symlinks that resolve elsewhere) raise `ValueError`. If unset, the server uses its current working directory as the root. Mount a writable volume at this path if `project_name` will be used in production.
+
 ## Step 2: Create infrastructure
 
 ```bash

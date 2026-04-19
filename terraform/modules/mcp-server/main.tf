@@ -330,16 +330,26 @@ resource "google_binary_authorization_policy" "policy" {
 
   project = var.project_id
 
-  # Global admission rule — allow anything NOT in the scoped patterns below.
-  # Keeps blast radius scoped to the MCP server image path.
+  # Deny-by-default: every image must be cosign-attested unless it matches
+  # one of the narrow Google-managed system-image patterns below. Previously
+  # this was ALWAYS_ALLOW with a non-enforcing whitelist, which made the
+  # feature effectively a no-op for Cloud Run workloads.
   default_admission_rule {
-    evaluation_mode  = "ALWAYS_ALLOW"
+    evaluation_mode  = "REQUIRE_ATTESTATION"
     enforcement_mode = "ENFORCED_BLOCK_AND_AUDIT_LOG"
+    require_attestations_by = [
+      google_binary_authorization_attestor.cosign_attestor.name,
+    ]
   }
 
-  # Scoped rule: the MCP server image MUST be attested by the cosign attestor.
+  # Whitelist system images that Google signs but whose attestations we do
+  # not own (e.g. Cloud Run system containers, GKE managed images). Keep
+  # this list as narrow as possible.
   admission_whitelist_patterns {
-    name_pattern = "${var.region}-docker.pkg.dev/${var.project_id}/${var.name}/*"
+    name_pattern = "gcr.io/cloud-run-managed/*"
+  }
+  admission_whitelist_patterns {
+    name_pattern = "gke.gcr.io/*"
   }
 
   depends_on = [

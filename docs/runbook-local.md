@@ -128,6 +128,31 @@ Test the health endpoint:
 curl http://127.0.0.1:8080/health
 ```
 
+### Caller principal (optional)
+
+Per-principal rate limiting and audit attribution need a principal. Over HTTP, the `PrincipalMiddleware` reads it from the first non-empty header in this order: `X-MCP-Client-ID`, `X-MCP-Principal`, `X-Goog-Authenticated-User-Email`, `X-Serverless-Authorization`.
+
+```bash
+curl -H "X-MCP-Client-ID: alice@example.com" http://127.0.0.1:8080/health
+```
+
+For stdio, the principal defaults to `$USER`. Override with:
+
+```bash
+VPCSC_MCP_DEFAULT_PRINCIPAL=alice python -m vpcsc_mcp.server
+```
+
+### Terraform output directory (optional)
+
+When you invoke a generator tool with `project_name` set, the generated `.tf` file is written to disk. By default, the output directory is the current working directory. To confine writes to a specific root:
+
+```bash
+export VPCSC_MCP_OUTPUT_ROOT=/tmp/vpcsc-out
+python -m vpcsc_mcp.server
+```
+
+The server rejects `output_dir` arguments that resolve outside this root.
+
 ## Use with Google ADK (optional)
 
 ```bash

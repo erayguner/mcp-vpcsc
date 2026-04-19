@@ -43,11 +43,70 @@ from vpcsc_mcp.tools import (
     register_terraform_tools,
 )
 from vpcsc_mcp.tools.input_filters import filter_text
+from vpcsc_mcp.tools.observability import reset_principal, set_principal
 
 # Server start time for uptime tracking
 _SERVER_START_TIME: float | None = None
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Principal extraction — populates the per-request principal context var
+# so the RateLimiter / audit log / metrics can attribute calls to a caller.
+# ---------------------------------------------------------------------------
+
+
+_PRINCIPAL_HEADERS = (
+    # Explicit client ID from MCP callers.
+    "x-mcp-client-id",
+    "x-mcp-principal",
+    # IAP-authenticated Cloud Run invoker (most common prod case).
+    "x-goog-authenticated-user-email",
+    # Cloud Run auth JWT — when verified by IAM, this carries the caller email.
+    "x-serverless-authorization",
+)
+
+
+def _extract_principal_from_headers(headers) -> str | None:
+    """Return a principal string from the first matching MCP/Cloud Run header."""
+    for name in _PRINCIPAL_HEADERS:
+        value = headers.get(name)
+        if value:
+            # Strip Bearer / prefix noise; keep only the identity portion.
+            if ":" in value:
+                value = value.split(":", 1)[-1]
+            return value.strip() or None
+    return None
+
+
+class PrincipalMiddleware:
+    """Starlette ASGI middleware that binds the caller principal for a request.
+
+    Reads one of ``X-MCP-Client-ID`` / ``X-MCP-Principal`` / Cloud Run's
+    ``X-Goog-Authenticated-User-Email`` and sets the principal contextvar so
+    per-principal rate limiting, audit logs, and metrics isolate callers.
+    Falls back to ``VPCSC_MCP_DEFAULT_PRINCIPAL`` (if set) or ``"anonymous"``.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Starlette-style headers: list of (bytes, bytes) tuples in scope.
+        headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
+        principal = _extract_principal_from_headers(headers) or os.environ.get(
+            "VPCSC_MCP_DEFAULT_PRINCIPAL"
+        )
+        token = set_principal(principal)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            reset_principal(token)
 
 # ---------------------------------------------------------------------------
 # Lifespan — startup checks and shutdown cleanup
@@ -404,12 +463,30 @@ def main():
     host = "0.0.0.0" if os.environ.get("K_SERVICE") else os.environ.get("VPCSC_MCP_HOST", "127.0.0.1")
 
     if transport in ("streamable-http", "sse"):
-        # Configure host/port via settings, then use the synchronous run()
+        # Configure host/port via settings, then install the PrincipalMiddleware
+        # on the underlying Starlette app so per-request rate limiting and audit
+        # attribution work. We bypass mcp.run() because it builds its own app
+        # and does not expose a middleware hook.
+        import uvicorn
+
         mcp.settings.host = host
         mcp.settings.port = port
+
+        if transport == "streamable-http":
+            app = mcp.streamable_http_app()
+        else:
+            app = mcp.sse_app()
+        app.add_middleware(PrincipalMiddleware)
+
         logger.info("Starting %s transport on %s:%d", transport, host, port)
-        mcp.run(transport=transport)
+        uvicorn.run(app, host=host, port=port, log_level="info")
     else:
+        # stdio: one principal for the life of the process. Populate from env
+        # (e.g. the OS user or a caller-supplied label) so audit logs and
+        # metrics are not all attributed to "anonymous".
+        set_principal(
+            os.environ.get("VPCSC_MCP_DEFAULT_PRINCIPAL") or os.environ.get("USER") or "stdio"
+        )
         mcp.run(transport="stdio")
 
 

@@ -142,6 +142,105 @@ class TestTerraformGeneration:
         assert "\n" in result  # Should be multiline for 4+ items
 
 
+class TestHCLSanitiser:
+    """Pen-test regressions: HIGH #1 (${} / %{} escape) and HIGH #2 (ingress/egress builders)."""
+
+    @staticmethod
+    def _has_live_interpolation(hcl: str) -> bool:
+        """True if the HCL contains a live ``${`` (not preceded by another ``$``)."""
+        import re
+
+        # Negative lookbehind for another $; matches a standalone ${ or %{.
+        return bool(re.search(r"(?<!\$)\$\{|(?<!%)%\{", hcl))
+
+    def test_dollar_brace_escaped(self):
+        from vpcsc_mcp.tools.terraform_gen import _sanitise_hcl_string
+
+        out = _sanitise_hcl_string('${file("/etc/passwd")}')
+        assert not self._has_live_interpolation(out)  # no live ${
+        assert "$${" in out  # escaped form present
+
+    def test_percent_brace_escaped(self):
+        from vpcsc_mcp.tools.terraform_gen import _sanitise_hcl_string
+
+        out = _sanitise_hcl_string("%{for x in y}%{endfor}")
+        assert not self._has_live_interpolation(out)
+        assert "%%{" in out
+
+    def test_quote_backslash_still_escaped(self):
+        from vpcsc_mcp.tools.terraform_gen import _sanitise_hcl_string
+
+        out = _sanitise_hcl_string('say "hi"\\')
+        assert '\\"' in out
+        assert "\\\\" in out
+
+    def test_ingress_builder_escapes_title_interpolation(self):
+        from vpcsc_mcp.tools.terraform_gen import _build_ingress_hcl
+
+        rule = {
+            "title": '${file("/etc/passwd")}',
+            "identity_type": "ANY_IDENTITY",
+            "target_resources": ["*"],
+            "operations": [{"service_name": "bigquery.googleapis.com", "method_selectors": []}],
+        }
+        hcl = _build_ingress_hcl(rule)
+        assert not self._has_live_interpolation(hcl)
+        assert "$${" in hcl
+
+    def test_egress_builder_escapes_resource_quote_breakout(self):
+        from vpcsc_mcp.tools.terraform_gen import _build_egress_hcl
+
+        # An unescaped `"` in operations.service_name would close the HCL string
+        # and inject a new attribute. Post-fix: it must be backslash-escaped.
+        rule = {
+            "title": "ok",
+            "identity_type": "ANY_IDENTITY",
+            "target_resources": ["*"],
+            "operations": [{
+                "service_name": 'bigquery.googleapis.com"\n  fake = "evil',
+                "method_selectors": [],
+            }],
+        }
+        hcl = _build_egress_hcl(rule)
+        # The forged `fake = "evil` attribute must not appear as valid HCL.
+        assert '\n  fake = "evil' not in hcl
+
+
+class TestOutputDirValidation:
+    """Pen-test regression: HIGH #3 (_resolve_output_dir containment)."""
+
+    def test_absolute_path_outside_root_rejected(self, tmp_path, monkeypatch):
+        from vpcsc_mcp.tools.terraform_gen import _resolve_output_dir
+
+        monkeypatch.setenv("VPCSC_MCP_OUTPUT_ROOT", str(tmp_path))
+        import pytest
+
+        with pytest.raises(ValueError, match="outside the allowed root"):
+            _resolve_output_dir("/etc/cron.d")
+
+    def test_traversal_rejected(self, tmp_path, monkeypatch):
+        from vpcsc_mcp.tools.terraform_gen import _resolve_output_dir
+
+        monkeypatch.setenv("VPCSC_MCP_OUTPUT_ROOT", str(tmp_path))
+        import pytest
+
+        with pytest.raises(ValueError):
+            _resolve_output_dir("../../../etc")
+
+    def test_relative_under_root_allowed(self, tmp_path, monkeypatch):
+        from vpcsc_mcp.tools.terraform_gen import _resolve_output_dir
+
+        monkeypatch.setenv("VPCSC_MCP_OUTPUT_ROOT", str(tmp_path))
+        resolved = _resolve_output_dir("subdir")
+        assert resolved.startswith(str(tmp_path.resolve()))
+
+    def test_none_returns_root(self, tmp_path, monkeypatch):
+        from vpcsc_mcp.tools.terraform_gen import _resolve_output_dir
+
+        monkeypatch.setenv("VPCSC_MCP_OUTPUT_ROOT", str(tmp_path))
+        assert _resolve_output_dir(None) == str(tmp_path.resolve())
+
+
 class TestNewServices:
     """Tests for newly added VPC-SC supported services."""
 

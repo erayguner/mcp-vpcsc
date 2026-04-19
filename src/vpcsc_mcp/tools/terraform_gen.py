@@ -15,6 +15,38 @@ _SERVICE_API = re.compile(r"^[a-z0-9.-]+\.googleapis\.com$")
 _SAFE_FILENAME = re.compile(r"[^a-zA-Z0-9_-]")
 
 
+def _resolve_output_dir(output_dir: str | None) -> str:
+    """Resolve and validate the output directory.
+
+    Returns an absolute path under an allowed root. Rejects paths that would
+    escape the allowed root (traversal), absolute paths outside it, and
+    symlinks that resolve outside it.
+
+    Allowed roots (in order of precedence):
+      1. ``VPCSC_MCP_OUTPUT_ROOT`` env var, if set (must be an absolute path).
+      2. The current working directory.
+    """
+    allowed_root = os.environ.get("VPCSC_MCP_OUTPUT_ROOT") or os.getcwd()
+    allowed_root = os.path.realpath(os.path.abspath(allowed_root))
+
+    if output_dir is None:
+        return allowed_root
+
+    # Treat relative paths as relative to the allowed root.
+    candidate = output_dir if os.path.isabs(output_dir) else os.path.join(allowed_root, output_dir)
+    resolved = os.path.realpath(os.path.abspath(candidate))
+
+    # Containment check — resolved path must equal or be nested under allowed_root.
+    root_with_sep = allowed_root + os.sep
+    if resolved != allowed_root and not resolved.startswith(root_with_sep):
+        raise ValueError(
+            f"output_dir {output_dir!r} resolves to {resolved!r} which is outside "
+            f"the allowed root {allowed_root!r}. Set VPCSC_MCP_OUTPUT_ROOT to widen "
+            f"the allowed root, or use a path inside the current working directory."
+        )
+    return resolved
+
+
 def _maybe_write_hcl(
     hcl: str,
     project_name: str | None,
@@ -28,6 +60,10 @@ def _maybe_write_hcl(
     ``{output_dir}/{project_name}_{resource_type}_{resource_name}.tf``
     and the return value includes both the file path and the HCL content.
     When *project_name* is ``None`` the HCL is returned unchanged.
+
+    ``output_dir`` is validated to be under an allowed root (current working
+    directory, or ``VPCSC_MCP_OUTPUT_ROOT`` if set). Paths outside the root
+    — including absolute paths and traversal attempts — raise ``ValueError``.
     """
     if not project_name:
         return hcl
@@ -35,8 +71,11 @@ def _maybe_write_hcl(
     safe_project = _SAFE_FILENAME.sub("_", project_name.lower()).strip("_")
     safe_name = _SAFE_FILENAME.sub("_", resource_name.lower()).strip("_")
     filename = f"{safe_project}_{resource_type}_{safe_name}.tf"
-    directory = output_dir or os.getcwd()
+    directory = _resolve_output_dir(output_dir)
     filepath = os.path.join(directory, filename)
+
+    # Ensure directory exists (under the validated root).
+    os.makedirs(directory, exist_ok=True)
 
     with open(filepath, "w") as f:
         f.write(hcl)
@@ -50,16 +89,47 @@ def _tf_log(message: str) -> None:
 
 
 def _sanitise_hcl_string(value: str) -> str:
-    """Escape characters that break HCL quoted strings."""
-    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    """Escape characters that break HCL quoted strings.
+
+    Also:
+      - escapes ``${`` and ``%{`` so that attacker-controlled strings cannot
+        inject Terraform interpolation or template directives (e.g.
+        ``${file("/etc/passwd")}``). HCL escapes literal braces by doubling
+        the leading sigil: ``$$`` and ``%%``.
+      - runs the value through the input-filter stack with secret blocking
+        enabled, so callers cannot smuggle OAuth tokens, PEM keys, or
+        service-account-key JSON into generated HCL via ``title`` /
+        ``description`` / ``resource`` / method fields. If the filter blocks
+        the value, a safe placeholder is substituted so the generator does
+        not fail closed on noisy input.
+    """
+    # Lazy import: input_filters depends on pyyaml which we only need at
+    # generation time, and avoiding the import at module load keeps
+    # terraform_gen importable in environments that skip yaml.
+    from vpcsc_mcp.tools.input_filters import filter_text
+
+    res = filter_text(value, field_name="hcl_value", block_secrets=True, redact_pii=True)
+    if res.blocked:
+        cleaned = f"[REJECTED:{res.reason or 'blocked'}]"
+    else:
+        cleaned = res.cleaned if isinstance(res.cleaned, str) else str(res.cleaned)
+
+    return (
+        cleaned.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("${", "$${")
+        .replace("%{", "%%{")
+    )
 
 
 def _hcl_list(items: list[str], indent: int = 4) -> str:
-    """Format a list of strings as HCL list."""
+    """Format a list of strings as HCL list. Each item is HCL-sanitised."""
     pad = " " * indent
-    if len(items) <= 3:
-        return "[" + ", ".join(f'"{i}"' for i in items) + "]"
-    inner = ",\n".join(f'{pad}  "{i}"' for i in items)
+    safe = [_sanitise_hcl_string(i) for i in items]
+    if len(safe) <= 3:
+        return "[" + ", ".join(f'"{i}"' for i in safe) + "]"
+    inner = ",\n".join(f'{pad}  "{i}"' for i in safe)
     return f"[\n{inner},\n{pad}]"
 
 
@@ -979,21 +1049,27 @@ def register_terraform_tools(mcp) -> None:
 
 
 def _build_ingress_hcl(rule: dict) -> str:
-    """Build an ingress_policies HCL block from a rule dict."""
-    title = rule.get("title", "Ingress Rule")
+    """Build an ingress_policies HCL block from a rule dict.
+
+    All values interpolated into HCL strings are passed through
+    ``_sanitise_hcl_string`` to prevent quote breakout and Terraform
+    interpolation injection (``${}`` / ``%{}``).
+    """
+    s = _sanitise_hcl_string
+    title = s(str(rule.get("title", "Ingress Rule")))
     lines = ['    ingress_policies {', f'      title = "{title}"', "      ingress_from {"]
 
     if "identity_type" in rule:
-        lines.append(f'        identity_type = "{rule["identity_type"]}"')
+        lines.append(f'        identity_type = "{s(str(rule["identity_type"]))}"')
     elif "identities" in rule:
         lines.append(f"        identities = {_hcl_list(rule['identities'], indent=8)}")
 
     for src in rule.get("sources", []):
         lines.append("        sources {")
         if "resource" in src:
-            lines.append(f'          resource = "{src["resource"]}"')
+            lines.append(f'          resource = "{s(str(src["resource"]))}"')
         if "access_level" in src:
-            lines.append(f'          access_level = "{src["access_level"]}"')
+            lines.append(f'          access_level = "{s(str(src["access_level"]))}"')
         lines.append("        }")
 
     lines.append("      }")
@@ -1003,13 +1079,13 @@ def _build_ingress_hcl(rule: dict) -> str:
 
     for op in rule.get("operations", []):
         lines.append("        operations {")
-        lines.append(f'          service_name = "{op["service_name"]}"')
+        lines.append(f'          service_name = "{s(str(op["service_name"]))}"')
         for ms in op.get("method_selectors", []):
             lines.append("          method_selectors {")
             if "method" in ms:
-                lines.append(f'            method = "{ms["method"]}"')
+                lines.append(f'            method = "{s(str(ms["method"]))}"')
             elif "permission" in ms:
-                lines.append(f'            permission = "{ms["permission"]}"')
+                lines.append(f'            permission = "{s(str(ms["permission"]))}"')
             lines.append("          }")
         lines.append("        }")
 
@@ -1019,12 +1095,16 @@ def _build_ingress_hcl(rule: dict) -> str:
 
 
 def _build_egress_hcl(rule: dict) -> str:
-    """Build an egress_policies HCL block from a rule dict."""
-    title = rule.get("title", "Egress Rule")
+    """Build an egress_policies HCL block from a rule dict.
+
+    All values interpolated into HCL strings are HCL-sanitised.
+    """
+    s = _sanitise_hcl_string
+    title = s(str(rule.get("title", "Egress Rule")))
     lines = ['    egress_policies {', f'      title = "{title}"', "      egress_from {"]
 
     if "identity_type" in rule:
-        lines.append(f'        identity_type = "{rule["identity_type"]}"')
+        lines.append(f'        identity_type = "{s(str(rule["identity_type"]))}"')
     elif "identities" in rule:
         lines.append(f"        identities = {_hcl_list(rule['identities'], indent=8)}")
 
@@ -1035,13 +1115,13 @@ def _build_egress_hcl(rule: dict) -> str:
 
     for op in rule.get("operations", []):
         lines.append("        operations {")
-        lines.append(f'          service_name = "{op["service_name"]}"')
+        lines.append(f'          service_name = "{s(str(op["service_name"]))}"')
         for ms in op.get("method_selectors", []):
             lines.append("          method_selectors {")
             if "method" in ms:
-                lines.append(f'            method = "{ms["method"]}"')
+                lines.append(f'            method = "{s(str(ms["method"]))}"')
             elif "permission" in ms:
-                lines.append(f'            permission = "{ms["permission"]}"')
+                lines.append(f'            permission = "{s(str(ms["permission"]))}"')
             lines.append("          }")
         lines.append("        }")
 
