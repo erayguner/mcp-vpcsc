@@ -87,7 +87,7 @@ jobs:
       # Non-blocking (exit-code 0) so reviewers can see what needs attention
       # without failing every PR on base-image CVE churn.
       - name: Trivy scan — report HIGH+CRITICAL
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: vpcsc-mcp:${{ github.sha }}
           format: table
@@ -99,7 +99,7 @@ jobs:
       # but do not block CI. Tighten this once .trivyignore is populated with
       # justified exceptions.
       - name: Trivy scan — block on CRITICAL
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: vpcsc-mcp:${{ github.sha }}
           format: table
