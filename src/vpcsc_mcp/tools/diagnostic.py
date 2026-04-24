@@ -91,8 +91,7 @@ def register_diagnostic_tools(mcp) -> None:
                     display = SUPPORTED_SERVICES.get(api, "")
                     sections.append(f"  [ENABLED] {api} ({display})")
                 sections.append(
-                    f"\n  {len(enabled_apis)} VPC-SC supported APIs enabled "
-                    f"out of {len(SUPPORTED_SERVICES)} known."
+                    f"\n  {len(enabled_apis)} VPC-SC supported APIs enabled " f"out of {len(SUPPORTED_SERVICES)} known."
                 )
             else:
                 sections.append("  No VPC-SC supported APIs found enabled.")
@@ -101,11 +100,16 @@ def register_diagnostic_tools(mcp) -> None:
 
         # ── Not-enabled but common ───────────────────────────────────
         common_missing = set(SUPPORTED_SERVICES.keys()) - set(enabled_apis)
-        important_missing = {s for s in common_missing if s in {
-            "accesscontextmanager.googleapis.com",
-            "cloudkms.googleapis.com",
-            "secretmanager.googleapis.com",
-        }}
+        important_missing = {
+            s
+            for s in common_missing
+            if s
+            in {
+                "accesscontextmanager.googleapis.com",
+                "cloudkms.googleapis.com",
+                "secretmanager.googleapis.com",
+            }
+        }
         if important_missing:
             sections.append("\n  Potentially needed APIs not yet enabled:")
             for api in sorted(important_missing):
@@ -130,10 +134,14 @@ def register_diagnostic_tools(mcp) -> None:
 
         policy_id = None
         if org_id:
-            pol_result = await run_gcloud([
-                "access-context-manager", "policies", "list",
-                f"--organization={org_id}",
-            ])
+            pol_result = await run_gcloud(
+                [
+                    "access-context-manager",
+                    "policies",
+                    "list",
+                    f"--organization={org_id}",
+                ]
+            )
             if "error" not in pol_result:
                 policies = pol_result.get("result", [])
                 if policies:
@@ -150,10 +158,14 @@ def register_diagnostic_tools(mcp) -> None:
         await progress("Listing existing perimeters and access levels...")
         if policy_id:
             sections.append("\n--- EXISTING PERIMETERS ---")
-            peri_result = await run_gcloud([
-                "access-context-manager", "perimeters", "list",
-                f"--policy={policy_id}",
-            ])
+            peri_result = await run_gcloud(
+                [
+                    "access-context-manager",
+                    "perimeters",
+                    "list",
+                    f"--policy={policy_id}",
+                ]
+            )
             if "error" not in peri_result:
                 perimeters = peri_result.get("result", [])
                 project_in_perimeter = False
@@ -169,7 +181,8 @@ def register_diagnostic_tools(mcp) -> None:
 
                         proj_ref = (
                             f"projects/{proj.get('projectNumber', '')}"
-                            if isinstance(proj_info.get("result"), dict) else ""
+                            if isinstance(proj_info.get("result"), dict)
+                            else ""
                         )
                         in_this = proj_ref in resources if proj_ref else False
                         if in_this:
@@ -189,10 +202,14 @@ def register_diagnostic_tools(mcp) -> None:
 
             # ── Access levels ────────────────────────────────────────
             sections.append("\n--- ACCESS LEVELS ---")
-            level_result = await run_gcloud([
-                "access-context-manager", "levels", "list",
-                f"--policy={policy_id}",
-            ])
+            level_result = await run_gcloud(
+                [
+                    "access-context-manager",
+                    "levels",
+                    "list",
+                    f"--policy={policy_id}",
+                ]
+            )
             if "error" not in level_result:
                 levels = level_result.get("result", [])
                 if levels:
@@ -249,15 +266,18 @@ def register_diagnostic_tools(mcp) -> None:
         await progress("Querying Cloud Audit Logs for VPC-SC violations...")
         sections.append("\n--- RECENT VPC-SC VIOLATIONS (last 7d) ---")
         log_filter = (
-            'protoPayload.metadata.@type='
-            '"type.googleapis.com/google.cloud.audit.VpcServiceControlAuditMetadata"'
+            "protoPayload.metadata.@type=" '"type.googleapis.com/google.cloud.audit.VpcServiceControlAuditMetadata"'
         )
-        log_result = await run_gcloud([
-            "logging", "read", log_filter,
-            f"--project={project_id}",
-            "--freshness=7d",
-            "--limit=10",
-        ])
+        log_result = await run_gcloud(
+            [
+                "logging",
+                "read",
+                log_filter,
+                f"--project={project_id}",
+                "--freshness=7d",
+                "--limit=10",
+            ]
+        )
         if "error" not in log_result:
             entries = log_result.get("result", [])
             if entries:
@@ -301,8 +321,7 @@ def register_diagnostic_tools(mcp) -> None:
             already_protected = sorted(set(enabled_apis) & protected_services)
             if already_protected:
                 sections.append(
-                    f"\n  PROTECTED ({len(already_protected)} APIs "
-                    "— already in perimeter's restricted_services):"
+                    f"\n  PROTECTED ({len(already_protected)} APIs " "— already in perimeter's restricted_services):"
                 )
                 for api in already_protected:
                     sections.append(f"    [PROTECTED] {api} ({SUPPORTED_SERVICES.get(api, '')})")
@@ -321,8 +340,7 @@ def register_diagnostic_tools(mcp) -> None:
                 )
                 sections.append("  Use dry-run mode first to identify any violations:")
                 sections.append(
-                    "    gcloud access-context-manager perimeters dry-run update "
-                    f"{perimeter_name_for_project} \\"
+                    "    gcloud access-context-manager perimeters dry-run update " f"{perimeter_name_for_project} \\"
                 )
                 sections.append(f"      --policy={policy_id} \\")
                 add_svc = ",".join(unprotected[:5])
@@ -347,7 +365,7 @@ def register_diagnostic_tools(mcp) -> None:
             for api in enabled_apis:
                 sections.append(f"    [GAP] {api} ({SUPPORTED_SERVICES.get(api, '')})")
             sections.append("\n  ACTION: Create a new perimeter with these services.")
-            sections.append(f"  Use: generate_implementation_guide(project_id=\"{project_id}\") for full Terraform.")
+            sections.append(f'  Use: generate_implementation_guide(project_id="{project_id}") for full Terraform.')
         else:
             sections.append("  No VPC-SC supported APIs enabled. Nothing to protect.")
 
@@ -445,10 +463,14 @@ def register_diagnostic_tools(mcp) -> None:
         await guide_progress("Looking up access policy...")
         policy_id = "REPLACE_WITH_POLICY_ID"
         if org_id and org_id != "REPLACE_WITH_ORG_ID":
-            pol_result = await run_gcloud([
-                "access-context-manager", "policies", "list",
-                f"--organization={org_id}",
-            ])
+            pol_result = await run_gcloud(
+                [
+                    "access-context-manager",
+                    "policies",
+                    "list",
+                    f"--organization={org_id}",
+                ]
+            )
             if "error" not in pol_result:
                 policies = pol_result.get("result", [])
                 if policies:
@@ -491,9 +513,7 @@ def register_diagnostic_tools(mcp) -> None:
 
         # ── Build the guide ──────────────────────────────────────────
         services_hcl = "\n".join(f'    "{s}",' for s in restricted_services)
-        "\n".join(
-            f'    "serviceAccount:{sa}",' for sa in service_accounts[:10]
-        )
+        "\n".join(f'    "serviceAccount:{sa}",' for sa in service_accounts[:10])
 
         acm_policy_ref = "${{data.google_access_context_manager_access_policy.org_policy.name}}"
 

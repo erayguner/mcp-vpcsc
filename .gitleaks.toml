@@ -1,0 +1,12 @@
+# Gitleaks config extending the default rules. The only allowlist entries are
+# for test fixtures that exercise the redaction/sanitisation code — these are
+# intentional fakes, not real secrets.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures for PII/secret redaction"
+paths = [
+  '''tests/test_safety\.py''',
+  '''tests/test_input_filters\.py''',
+]

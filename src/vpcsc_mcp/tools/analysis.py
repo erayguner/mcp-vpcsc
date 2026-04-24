@@ -95,10 +95,7 @@ def register_analysis_tools(mcp) -> None:
         services = SUPPORTED_SERVICES
         if filter_keyword:
             kw = filter_keyword.lower()
-            services = {
-                k: v for k, v in services.items()
-                if kw in k.lower() or kw in v.lower()
-            }
+            services = {k: v for k, v in services.items() if kw in k.lower() or kw in v.lower()}
 
         if not services:
             return f"No services matched filter '{filter_keyword}'."
@@ -243,23 +240,25 @@ def register_analysis_tools(mcp) -> None:
             display = SUPPORTED_SERVICES.get(svc, svc)
             lines.append(f"  {svc} ({display}): {service_types[svc]}")
 
-        lines.extend([
-            "",
-            "COMMON MISTAKES",
-            "-" * 40,
-            '  WRONG: {"method": "bigquery.tables.getData"}  — BigQuery needs "permission"',
-            '  RIGHT: {"permission": "bigquery.tables.getData"}',
-            "",
-            '  WRONG: {"permission": "google.storage.objects.get"}  — Storage needs "method"',
-            '  RIGHT: {"method": "google.storage.objects.get"}',
-            "",
-            "HOW TO AVOID THIS",
-            "-" * 40,
-            "  1. Use the get_method_selectors tool — it returns the correct type automatically",
-            "  2. Use the generate_ingress_yaml / generate_egress_yaml tools — they pick the right type",
-            "  3. Use the pre-built patterns (get_ingress_pattern / get_egress_pattern) — they are correct",
-            "  4. When in doubt, use {'method': '*'} to allow all methods, then narrow down",
-        ])
+        lines.extend(
+            [
+                "",
+                "COMMON MISTAKES",
+                "-" * 40,
+                '  WRONG: {"method": "bigquery.tables.getData"}  — BigQuery needs "permission"',
+                '  RIGHT: {"permission": "bigquery.tables.getData"}',
+                "",
+                '  WRONG: {"permission": "google.storage.objects.get"}  — Storage needs "method"',
+                '  RIGHT: {"method": "google.storage.objects.get"}',
+                "",
+                "HOW TO AVOID THIS",
+                "-" * 40,
+                "  1. Use the get_method_selectors tool — it returns the correct type automatically",
+                "  2. Use the generate_ingress_yaml / generate_egress_yaml tools — they pick the right type",
+                "  3. Use the pre-built patterns (get_ingress_pattern / get_egress_pattern) — they are correct",
+                "  4. When in doubt, use {'method': '*'} to allow all methods, then narrow down",
+            ]
+        )
         return "\n".join(lines)
 
     @mcp.tool(annotations=GENERATE)
@@ -281,10 +280,7 @@ def register_analysis_tools(mcp) -> None:
 
             has_valid_prefix = any(identity.startswith(p) for p in valid_prefixes)
             if not has_valid_prefix:
-                issues.append(
-                    f"  - '{identity}': missing prefix. Must start with one of: "
-                    + ", ".join(valid_prefixes)
-                )
+                issues.append(f"  - '{identity}': missing prefix. Must start with one of: " + ", ".join(valid_prefixes))
                 # Suggest correction
                 if "@" in identity and "." in identity:
                     local_part, _, domain_part = identity.rpartition("@")
@@ -373,8 +369,7 @@ def register_analysis_tools(mcp) -> None:
         if has_cross_project_queries:
             if "bigquery.googleapis.com" not in services:
                 warnings.append(
-                    "Cross-project BigQuery queries planned but "
-                    "bigquery.googleapis.com not in restricted services."
+                    "Cross-project BigQuery queries planned but " "bigquery.googleapis.com not in restricted services."
                 )
             recommendations.append(
                 "For cross-project BigQuery: you'll need both ingress rules (on data project perimeter) "
@@ -518,20 +513,48 @@ def register_analysis_tools(mcp) -> None:
                 # APIs the project has that we don't track
                 unknown = sorted(enabled - set(SUPPORTED_SERVICES.keys()))
                 # Filter to likely VPC-SC candidates (not all APIs support VPC-SC)
-                candidates = [a for a in unknown if not any(
-                    skip in a for skip in [
-                        "serviceusage", "servicemanagement", "cloudapis",
-                        "oslogin", "iamcredentials", "cloudtrace",
-                        "stackdriver", "clouddebugger", "source",
-                        "testing", "firebase", "fcm", "identitytoolkit",
-                        "securetoken", "maps", "places", "geocoding",
-                        "translate", "sheets", "drive", "calendar",
-                        "chat", "meet", "admin", "groupssettings",
-                        "people", "youtube", "playintegrity",
-                        "analyticshub", "analyticsadmin", "orgpolicy",
-                        "essentialcontacts", "recommender",
-                    ]
-                )]
+                candidates = [
+                    a
+                    for a in unknown
+                    if not any(
+                        skip in a
+                        for skip in [
+                            "serviceusage",
+                            "servicemanagement",
+                            "cloudapis",
+                            "oslogin",
+                            "iamcredentials",
+                            "cloudtrace",
+                            "stackdriver",
+                            "clouddebugger",
+                            "source",
+                            "testing",
+                            "firebase",
+                            "fcm",
+                            "identitytoolkit",
+                            "securetoken",
+                            "maps",
+                            "places",
+                            "geocoding",
+                            "translate",
+                            "sheets",
+                            "drive",
+                            "calendar",
+                            "chat",
+                            "meet",
+                            "admin",
+                            "groupssettings",
+                            "people",
+                            "youtube",
+                            "playintegrity",
+                            "analyticshub",
+                            "analyticsadmin",
+                            "orgpolicy",
+                            "essentialcontacts",
+                            "recommender",
+                        ]
+                    )
+                ]
 
                 if candidates:
                     lines.append(f"POTENTIALLY MISSING from knowledge base ({len(candidates)}):")
@@ -554,7 +577,9 @@ def register_analysis_tools(mcp) -> None:
         lines.append("")
         lines.append("2. Org policies (occasional changes):")
         lines.append("   Edit: src/vpcsc_mcp/tools/org_policy.py (EXPECTED_POLICIES dict)")
-        lines.append("   Check: https://cloud.google.com/resource-manager/docs/organization-policy/org-policy-constraints")
+        lines.append(
+            "   Check: https://cloud.google.com/resource-manager/docs/organization-policy/org-policy-constraints"
+        )
         lines.append("")
         lines.append("3. Method selectors (rarely change):")
         lines.append("   Edit: src/vpcsc_mcp/data/services.py (SERVICE_METHOD_SELECTORS dict)")

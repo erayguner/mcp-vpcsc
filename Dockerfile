@@ -1,5 +1,8 @@
 FROM python:3.14-slim
 
+# Ensure pipefail so broken pipes surface as build failures (hadolint DL4006).
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Install uv and gcloud CLI
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 

@@ -1,7 +1,5 @@
 """Tests for the VPC-SC MCP server tools and data."""
 
-
-
 from vpcsc_mcp.data.patterns import (
     COMMON_EGRESS_PATTERNS,
     COMMON_INGRESS_PATTERNS,
@@ -36,8 +34,13 @@ class TestSupportedServices:
 class TestWorkloadRecommendations:
     def test_all_workload_types_exist(self):
         expected = {
-            "ai-ml", "data-analytics", "web-application",
-            "data-warehouse", "healthcare", "microservices", "gen-ai",
+            "ai-ml",
+            "data-analytics",
+            "web-application",
+            "data-warehouse",
+            "healthcare",
+            "microservices",
+            "gen-ai",
         }
         assert set(WORKLOAD_RECOMMENDATIONS.keys()) == expected
 
@@ -73,9 +76,9 @@ class TestMethodSelectors:
         for svc, presets in SERVICE_METHOD_SELECTORS.items():
             for preset_name, selectors in presets.items():
                 for sel in selectors:
-                    assert "method" in sel or "permission" in sel, (
-                        f"{svc}/{preset_name}: selector missing method/permission key"
-                    )
+                    assert (
+                        "method" in sel or "permission" in sel
+                    ), f"{svc}/{preset_name}: selector missing method/permission key"
 
 
 class TestPatterns:
@@ -196,10 +199,12 @@ class TestHCLSanitiser:
             "title": "ok",
             "identity_type": "ANY_IDENTITY",
             "target_resources": ["*"],
-            "operations": [{
-                "service_name": 'bigquery.googleapis.com"\n  fake = "evil',
-                "method_selectors": [],
-            }],
+            "operations": [
+                {
+                    "service_name": 'bigquery.googleapis.com"\n  fake = "evil',
+                    "method_selectors": [],
+                }
+            ],
         }
         hcl = _build_egress_hcl(rule)
         # The forged `fake = "evil` attribute must not appear as valid HCL.

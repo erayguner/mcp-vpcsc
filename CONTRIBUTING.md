@@ -21,9 +21,20 @@ cd mcp-vpcsc
 # Install all dependencies (including dev extras)
 uv sync --frozen --extra dev
 
+# Install git hooks — runs ruff, gitleaks, actionlint, hadolint, terraform fmt,
+# shellcheck, the gcloud allowlist drift check, and more on every commit.
+uv run pre-commit install --install-hooks
+
 # Verify everything works
-uv run ruff check src/ tests/
+uv run pre-commit run --all-files
 uv run pytest tests/ -v
+```
+
+Slow hooks (full pytest, allowlist drift) run in the `manual` stage so they do
+not slow down every commit. Exercise them before opening a PR:
+
+```bash
+uv run pre-commit run --hook-stage manual --all-files
 ```
 
 ### Running the server locally

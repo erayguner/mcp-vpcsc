@@ -10,9 +10,7 @@ AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app: FastAPI = get_fast_api_app(
     agents_dir=AGENT_DIR,
-    session_service_uri=os.environ.get(
-        "SESSION_DB_URI", "sqlite+aiosqlite:///./sessions.db"
-    ),
+    session_service_uri=os.environ.get("SESSION_DB_URI", "sqlite+aiosqlite:///./sessions.db"),
     allow_origins=os.environ.get("ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:8000").split(","),
     web=os.environ.get("SERVE_WEB_UI", "true").lower() == "true",
 )

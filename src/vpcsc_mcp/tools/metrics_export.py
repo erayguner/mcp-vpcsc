@@ -63,7 +63,11 @@ def install_metrics_exporter(metrics_registry: Any) -> bool:
     )
 
     def export(
-        tool: str, duration_ms: float, success: bool, cached: bool, principal: str,
+        tool: str,
+        duration_ms: float,
+        success: bool,
+        cached: bool,
+        principal: str,
     ) -> None:
         attrs = {
             "tool": tool,
@@ -83,6 +87,7 @@ def _build_exporter(mode: str):
     if mode == "otel-stdout":
         try:
             from opentelemetry.sdk.metrics.export import ConsoleMetricExporter
+
             return ConsoleMetricExporter()
         except ImportError:
             return None
@@ -91,12 +96,12 @@ def _build_exporter(mode: str):
             from opentelemetry.exporter.cloud_monitoring import (
                 CloudMonitoringMetricsExporter,
             )
+
             project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
             return CloudMonitoringMetricsExporter(project_id=project_id)
         except ImportError:
             logger.warning(
-                "otel-cloudmon requested but opentelemetry-exporter-gcp-monitoring "
-                "is not installed",
+                "otel-cloudmon requested but opentelemetry-exporter-gcp-monitoring " "is not installed",
             )
             return None
     logger.warning("Unknown %s value: %r", _EXPORT_ENV, mode)

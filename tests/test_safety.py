@@ -17,17 +17,13 @@ class TestRedactSensitiveData:
         assert "MIIEowIBAAKCAQEA0Z3VS5JJcds3xfn" not in result
 
     def test_redacts_pem_private_key_block(self):
-        text = (
-            "-----BEGIN PRIVATE KEY-----\n"
-            "MIIEvQIBADANBgkqhkiG9w0BAQE...\n"
-            "-----END PRIVATE KEY-----"
-        )
+        text = "-----BEGIN PRIVATE KEY-----\n" "MIIEvQIBADANBgkqhkiG9w0BAQE...\n" "-----END PRIVATE KEY-----"
         result = redact_sensitive_data(text)
         assert "[REDACTED PRIVATE KEY]" in result
         assert "MIIEvQIBADANBgkqhkiG9w0BAQE" not in result
 
     def test_redacts_oauth_token(self):
-        text = 'access_token: ya29.a0ARrdaM8kF_3xG2Bz-mQ1234567890abcdefghijk'
+        text = "access_token: ya29.a0ARrdaM8kF_3xG2Bz-mQ1234567890abcdefghijk"
         result = redact_sensitive_data(text)
         assert "[REDACTED TOKEN]" in result
         assert "ya29.a0ARrdaM8kF" not in result
@@ -61,12 +57,12 @@ class TestSanitiseOutput:
         assert "[FILTERED]" in result
 
     def test_redaction_integrated(self):
-        text = 'token: ya29.a0ARrdaM8kF_3xG2Bz-abcdefghijk1234567890'
+        text = "token: ya29.a0ARrdaM8kF_3xG2Bz-abcdefghijk1234567890"
         result = sanitise_output(text)
         assert "[REDACTED TOKEN]" in result
 
     def test_redaction_can_be_disabled(self):
-        text = 'token: ya29.a0ARrdaM8kF_3xG2Bz-abcdefghijk1234567890'
+        text = "token: ya29.a0ARrdaM8kF_3xG2Bz-abcdefghijk1234567890"
         result = sanitise_output(text, redact=False)
         assert "ya29" in result
 
@@ -90,10 +86,14 @@ class TestValidateGcloudArgs:
         assert "not in the allowed list" in result
 
     def test_blocked_flag(self):
-        result = validate_gcloud_args([
-            "access-context-manager", "perimeters", "list",
-            "--impersonate-service-account=admin@project.iam.gserviceaccount.com"
-        ])
+        result = validate_gcloud_args(
+            [
+                "access-context-manager",
+                "perimeters",
+                "list",
+                "--impersonate-service-account=admin@project.iam.gserviceaccount.com",
+            ]
+        )
         assert result is not None
         assert "not in the allowed list" in result
 
@@ -110,30 +110,52 @@ class TestValidateGcloudArgs:
     # Regression tests for pen-test MED #5, #9 (tightened _SAFE_ARG).
 
     def test_newline_rejected(self):
-        result = validate_gcloud_args([
-            "access-context-manager", "perimeters", "describe", "good\nfake-arg",
-        ])
+        result = validate_gcloud_args(
+            [
+                "access-context-manager",
+                "perimeters",
+                "describe",
+                "good\nfake-arg",
+            ]
+        )
         assert result is not None
         assert "disallowed characters" in result
 
     def test_carriage_return_rejected(self):
-        result = validate_gcloud_args([
-            "access-context-manager", "perimeters", "describe", "a\rb",
-        ])
+        result = validate_gcloud_args(
+            [
+                "access-context-manager",
+                "perimeters",
+                "describe",
+                "a\rb",
+            ]
+        )
         assert result is not None
 
     def test_single_quote_rejected(self):
-        result = validate_gcloud_args([
-            "access-context-manager", "perimeters", "describe", "it's-a-trap",
-        ])
+        result = validate_gcloud_args(
+            [
+                "access-context-manager",
+                "perimeters",
+                "describe",
+                "it's-a-trap",
+            ]
+        )
         assert result is not None
 
     def test_tab_allowed(self):
         # Tab is permitted in log filter strings and some spacings; just make
         # sure we didn't over-tighten and break legitimate args with tabs.
-        assert validate_gcloud_args([
-            "logging", "read", "a\tb",
-        ]) is None
+        assert (
+            validate_gcloud_args(
+                [
+                    "logging",
+                    "read",
+                    "a\tb",
+                ]
+            )
+            is None
+        )
 
 
 # ─── Pen-test regression: sanitise_output ────────────────────────────────
@@ -162,15 +184,15 @@ class TestSanitiseOutputRegression:
 
     def test_invisible_tag_chars_stripped(self):
         # Unicode tag chars (U+E0000..U+E007F) used to smuggle hidden directives.
-        text = "Perimeter \U000E0049\U000E0047\U000E004Edescription"
+        text = "Perimeter \U000e0049\U000e0047\U000e004edescription"
         result = sanitise_output(text)
-        assert "\U000E0049" not in result
-        assert "\U000E0047" not in result
+        assert "\U000e0049" not in result
+        assert "\U000e0047" not in result
 
     def test_zero_width_joiner_stripped(self):
-        text = "Peri\u200Dmeter description"
+        text = "Peri\u200dmeter description"
         result = sanitise_output(text)
-        assert "\u200D" not in result
+        assert "\u200d" not in result
 
     def test_benign_text_preserved(self):
         text = "Perimeter my-perimeter protects projects/123 via bigquery.googleapis.com."

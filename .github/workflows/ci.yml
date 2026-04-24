@@ -10,6 +10,18 @@ permissions:
   contents: read
 
 jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dev deps
+        run: uv sync --frozen --extra dev
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files --show-diff-on-failure --color=always
+
   lint-and-test:
     runs-on: ubuntu-latest
     strategy:
@@ -133,8 +145,8 @@ jobs:
         id: meta
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          echo "image=ghcr.io/${REPO_LOWER}/vpcsc-mcp" >> $GITHUB_OUTPUT
-          echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "image=ghcr.io/${REPO_LOWER}/vpcsc-mcp" >> "$GITHUB_OUTPUT"
+          echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v7

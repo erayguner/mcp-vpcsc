@@ -99,14 +99,13 @@ class PrincipalMiddleware:
 
         # Starlette-style headers: list of (bytes, bytes) tuples in scope.
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
-        principal = _extract_principal_from_headers(headers) or os.environ.get(
-            "VPCSC_MCP_DEFAULT_PRINCIPAL"
-        )
+        principal = _extract_principal_from_headers(headers) or os.environ.get("VPCSC_MCP_DEFAULT_PRINCIPAL")
         token = set_principal(principal)
         try:
             await self.app(scope, receive, send)
         finally:
             reset_principal(token)
+
 
 # ---------------------------------------------------------------------------
 # Lifespan — startup checks and shutdown cleanup
@@ -134,6 +133,7 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[None]:
     try:
         from vpcsc_mcp.tools.metrics_export import install_metrics_exporter
         from vpcsc_mcp.tools.observability import metrics as _metrics_registry
+
         if install_metrics_exporter(_metrics_registry):
             logger.info("Metrics exporter active")
     except Exception:
@@ -484,9 +484,7 @@ def main():
         # stdio: one principal for the life of the process. Populate from env
         # (e.g. the OS user or a caller-supplied label) so audit logs and
         # metrics are not all attributed to "anonymous".
-        set_principal(
-            os.environ.get("VPCSC_MCP_DEFAULT_PRINCIPAL") or os.environ.get("USER") or "stdio"
-        )
+        set_principal(os.environ.get("VPCSC_MCP_DEFAULT_PRINCIPAL") or os.environ.get("USER") or "stdio")
         mcp.run(transport="stdio")
 
 

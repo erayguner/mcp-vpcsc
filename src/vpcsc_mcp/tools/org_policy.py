@@ -58,10 +58,13 @@ def register_org_policy_tools(mcp) -> None:
 
         # ── Get effective org policies on the project ────────────────
         await progress("Fetching effective org policies...")
-        pol_result = await run_gcloud([
-            "org-policies", "list",
-            f"--project={project_id}",
-        ])
+        pol_result = await run_gcloud(
+            [
+                "org-policies",
+                "list",
+                f"--project={project_id}",
+            ]
+        )
 
         applied_constraints: dict[str, dict] = {}
         if "error" not in pol_result:
@@ -93,10 +96,14 @@ def register_org_policy_tools(mcp) -> None:
 
             if found is None:
                 # Try to describe it directly
-                desc_result = await run_gcloud([
-                    "org-policies", "describe", constraint_id,
-                    f"--project={project_id}",
-                ])
+                desc_result = await run_gcloud(
+                    [
+                        "org-policies",
+                        "describe",
+                        constraint_id,
+                        f"--project={project_id}",
+                    ]
+                )
                 if "error" not in desc_result:
                     found = desc_result.get("result", desc_result.get("result_text", {}))
 
@@ -107,7 +114,7 @@ def register_org_policy_tools(mcp) -> None:
                 spec = found if isinstance(found, dict) else {}
                 rules = spec.get("spec", spec).get("rules", spec.get("rules", []))
                 is_enforced = False
-                for rule in (rules if isinstance(rules, list) else []):
+                for rule in rules if isinstance(rules, list) else []:
                     if isinstance(rule, dict):
                         if rule.get("enforce") == "TRUE":
                             is_enforced = True
@@ -171,7 +178,7 @@ def register_org_policy_tools(mcp) -> None:
                     sections.append(f"    {c}: {p['description']}")
 
             sections.append("\n  To generate Terraform for these policies, use:")
-            sections.append(f"    generate_org_policy_terraform(project_id=\"{project_id}\")")
+            sections.append(f'    generate_org_policy_terraform(project_id="{project_id}")')
         else:
             sections.append("  All checked policies are compliant. No action needed.")
 
@@ -228,7 +235,7 @@ def register_org_policy_tools(mcp) -> None:
             lines.append('  domain = "REPLACE_WITH_YOUR_DOMAIN"  # e.g. "ons.gov.uk"')
             lines.append("}")
             lines.append("")
-            parent_ref = 'data.google_organization.org.name'
+            parent_ref = "data.google_organization.org.name"
         else:
             parent_ref = f'"projects/{project_id}"'
 
@@ -246,13 +253,13 @@ def register_org_policy_tools(mcp) -> None:
                 lines.append(f'# {meta["description"]}')
                 lines.append(f'# Risk: {meta["risk"]} — {meta["rationale"]}')
                 lines.append(f'resource "google_org_policy_policy" "{safe_name}" {{')
-                lines.append(f"  name   = \"{{{parent_ref}}}/policies/{constraint_id}\"")
+                lines.append(f'  name   = "{{{parent_ref}}}/policies/{constraint_id}"')
                 lines.append(f"  parent = {parent_ref}")
                 lines.append("  spec {")
 
                 if meta["expected"] == "enforced":
                     lines.append("    rules {")
-                    lines.append("      enforce = \"TRUE\"")
+                    lines.append('      enforce = "TRUE"')
                     lines.append("    }")
                 elif meta["expected"] == "restricted":
                     lines.append("    rules {")

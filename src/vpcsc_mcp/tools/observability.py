@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 # Used for per-principal rate limiting and per-principal metrics.
 
 _principal_var: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "vpcsc_mcp_principal", default="anonymous",
+    "vpcsc_mcp_principal",
+    default="anonymous",
 )
 
 
@@ -208,7 +209,9 @@ class AuditLogger:
         }
         canonical = _canonical_dumps(manifest)
         manifest["signature"] = hmac.new(
-            self._key, canonical.encode(), hashlib.sha256,
+            self._key,
+            canonical.encode(),
+            hashlib.sha256,
         ).hexdigest()
         manifest["algorithm"] = "HMAC-SHA256"
         manifest_path = self._dir / f"manifest-{target_day}.json"
@@ -290,7 +293,10 @@ class AuditLogger:
                     ) from exc
 
     def _iter_entries(
-        self, *, since: float | None, until: float | None,
+        self,
+        *,
+        since: float | None,
+        until: float | None,
     ) -> Iterator[dict]:
         if not self._dir:
             return
@@ -320,10 +326,7 @@ class AuditLogger:
                         f"chain break in {log_path.name} at seq={entry.get('seq')}"
                         f": expected prev_hash={prev} got {expected_prev}",
                     )
-                payload = {
-                    k: v for k, v in entry.items()
-                    if k not in {"prev_hash", "chain_hash", "seq"}
-                }
+                payload = {k: v for k, v in entry.items() if k not in {"prev_hash", "chain_hash", "seq"}}
                 recomputed = hashlib.sha256(
                     (prev + _canonical_dumps(payload)).encode(),
                 ).hexdigest()
@@ -392,10 +395,15 @@ def audit_log(
 # ─── Result Cache ─────────────────────────────────────────────────────────
 
 # Subcommand verbs that are safe to cache (read-only operations).
-_CACHEABLE_VERBS = frozenset({
-    "list", "describe", "get-value", "read",
-    "supported-services",
-})
+_CACHEABLE_VERBS = frozenset(
+    {
+        "list",
+        "describe",
+        "get-value",
+        "read",
+        "supported-services",
+    }
+)
 
 
 def _is_cacheable(args: list[str]) -> bool:
@@ -433,7 +441,11 @@ class GcloudCache:
         return value
 
     def set(
-        self, args: list[str], project: str | None, value: dict, ttl: int | None = None,
+        self,
+        args: list[str],
+        project: str | None,
+        value: dict,
+        ttl: int | None = None,
     ) -> None:
         if not _is_cacheable(args):
             return
@@ -542,9 +554,7 @@ class RateLimiter:
             "total_acquired": self._total,
             "rejected": self._rejected,
             "principals_seen": len(self._per_principal),
-            "top_rejected_principals": [
-                {"principal": p, **s} for p, s in top_offenders if s["rejected"] > 0
-            ],
+            "top_rejected_principals": [{"principal": p, **s} for p, s in top_offenders if s["rejected"] > 0],
         }
 
 
@@ -578,7 +588,11 @@ class ToolMetrics:
         self._exporter = callback
 
     def record(
-        self, tool: str, duration_ms: float, success: bool = True, cached: bool = False,
+        self,
+        tool: str,
+        duration_ms: float,
+        success: bool = True,
+        cached: bool = False,
         principal: str | None = None,
     ) -> None:
         principal = principal or current_principal()
@@ -611,9 +625,7 @@ class ToolMetrics:
 
     @property
     def per_principal(self) -> dict:
-        return {
-            p: dict(tools) for p, tools in self._principal_calls.items()
-        }
+        return {p: dict(tools) for p, tools in self._principal_calls.items()}
 
 
 # ─── Module-level singletons ─────────────────────────────────────────────
