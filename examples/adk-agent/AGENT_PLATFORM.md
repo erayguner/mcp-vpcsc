@@ -53,10 +53,41 @@ service. No code changes required to switch.
 # Single command via ADK CLI
 adk eval examples/adk-agent/vpcsc_agent examples/adk-agent/evals/eval_sets/basic.evalset.json
 
-# Or through pytest
+# Flash (default) — fast, cheap
 RUN_ADK_EVALS=1 uv run pytest examples/adk-agent/evals -v
+
+# Pro — run separately when you need a higher-quality tool-selection check
+RUN_ADK_EVALS_PRO=1 uv run pytest examples/adk-agent/evals -v -k pro
 ```
 
 Evals hit the live model, so they are skipped by default. Extend
 `evals/eval_sets/basic.evalset.json` with more golden tool-call traces as
 behaviour changes.
+
+## Context caching (token savings)
+
+Set `ENABLE_CONTEXT_CACHE=1` to cache the system instruction and tool schemas
+across turns. On Gemini 2.5 this typically cuts input-token cost on the
+static prefix by ~75%.
+
+```bash
+export ENABLE_CONTEXT_CACHE=1
+export CONTEXT_CACHE_TTL_SECONDS=1800      # default 30 min
+export CONTEXT_CACHE_INTERVALS=10          # refresh every N invocations
+export CONTEXT_CACHE_MIN_TOKENS=0          # cache regardless of size
+```
+
+Falls back silently if the installed ADK version does not expose
+`ContextCacheConfig`, so leaving the env var on is safe across upgrades.
+
+## Trial credit (`vertex-genai-offer-2025`)
+
+Only Gemini API usage is in the SKU group — Agent Engine runtime, Memory
+Bank storage, and Cloud Run are **not** covered. Spend the credit on tokens:
+
+- Run the eval harness aggressively (both Flash and Pro).
+- Keep `ENABLE_CONTEXT_CACHE=1` on — cached tokens bill at the GenAI rate.
+- Experiment with `GEMINI_MODEL=gemini-2.5-pro` on tricky VPC-SC prompts.
+
+Skip the Agent Engine deploy until there is a production workload; the
+existing Cloud Run deployment of the MCP server is unaffected either way.

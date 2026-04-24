@@ -7,6 +7,10 @@ Supports two connection modes:
 
 Set connection mode via VPCSC_MCP_MODE env var: "local" or "remote".
 Set remote URL via VPCSC_MCP_URL env var (default: http://localhost:3000/mcp).
+
+Context caching: set ENABLE_CONTEXT_CACHE=1 to cache the system instruction
+and tool schemas across turns. On Gemini 2.5 this reduces input-token cost
+for the static prompt prefix by ~75%.
 """
 
 import os
@@ -57,6 +61,33 @@ def _build_toolset() -> McpToolset:
     )
 
 
+def _context_cache_config():
+    """Build ADK ContextCacheConfig when ENABLE_CONTEXT_CACHE=1.
+
+    Returns None when disabled, or when the running ADK version does not
+    expose ContextCacheConfig (keeps the agent importable on older ADKs).
+    """
+    if os.environ.get("ENABLE_CONTEXT_CACHE", "").lower() not in ("1", "true", "yes"):
+        return None
+
+    try:
+        from google.adk.agents.context_cache_config import ContextCacheConfig
+    except ImportError:
+        return None
+
+    return ContextCacheConfig(
+        cache_intervals=int(os.environ.get("CONTEXT_CACHE_INTERVALS", "10")),
+        ttl_seconds=int(os.environ.get("CONTEXT_CACHE_TTL_SECONDS", "1800")),
+        min_tokens=int(os.environ.get("CONTEXT_CACHE_MIN_TOKENS", "0")),
+    )
+
+
+_extra_kwargs: dict = {}
+_cache_config = _context_cache_config()
+if _cache_config is not None:
+    _extra_kwargs["context_cache_config"] = _cache_config
+
+
 root_agent = LlmAgent(
     model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
     name="vpcsc_helper",
@@ -64,6 +95,7 @@ root_agent = LlmAgent(
         "An AI agent that helps set up, manage, and troubleshoot "
         "Google Cloud VPC Service Controls using the VPC-SC MCP server."
     ),
+    **_extra_kwargs,
     instruction="""\
 You are a VPC Service Controls specialist. You help developers and platform engineers:
 
