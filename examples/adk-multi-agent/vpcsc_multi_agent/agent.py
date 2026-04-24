@@ -80,14 +80,16 @@ check_service_support, analyze_perimeter_design, validate_identity_format,
 get_method_selectors.\
 """,
     tools=[
-        _build_toolset(tool_filter=[
-            "recommend_restricted_services",
-            "list_supported_services",
-            "check_service_support",
-            "analyze_perimeter_design",
-            "validate_identity_format",
-            "get_method_selectors",
-        ]),
+        _build_toolset(
+            tool_filter=[
+                "recommend_restricted_services",
+                "list_supported_services",
+                "check_service_support",
+                "analyze_perimeter_design",
+                "validate_identity_format",
+                "get_method_selectors",
+            ]
+        ),
     ],
 )
 
@@ -113,21 +115,23 @@ generate_egress_yaml, list_ingress_patterns, list_egress_patterns,
 get_ingress_pattern, get_egress_pattern.\
 """,
     tools=[
-        _build_toolset(tool_filter=[
-            "generate_perimeter_terraform",
-            "generate_access_level_terraform",
-            "generate_bridge_terraform",
-            "generate_ingress_policy_terraform",
-            "generate_egress_policy_terraform",
-            "generate_full_perimeter_terraform",
-            "generate_vpc_accessible_services_terraform",
-            "generate_ingress_yaml",
-            "generate_egress_yaml",
-            "list_ingress_patterns",
-            "list_egress_patterns",
-            "get_ingress_pattern",
-            "get_egress_pattern",
-        ]),
+        _build_toolset(
+            tool_filter=[
+                "generate_perimeter_terraform",
+                "generate_access_level_terraform",
+                "generate_bridge_terraform",
+                "generate_ingress_policy_terraform",
+                "generate_egress_policy_terraform",
+                "generate_full_perimeter_terraform",
+                "generate_vpc_accessible_services_terraform",
+                "generate_ingress_yaml",
+                "generate_egress_yaml",
+                "list_ingress_patterns",
+                "list_egress_patterns",
+                "get_ingress_pattern",
+                "get_egress_pattern",
+            ]
+        ),
     ],
 )
 
@@ -150,15 +154,17 @@ get_method_selectors, generate_ingress_yaml, generate_egress_yaml,
 get_ingress_pattern, get_egress_pattern.\
 """,
     tools=[
-        _build_toolset(tool_filter=[
-            "check_vpc_sc_violations",
-            "troubleshoot_violation",
-            "get_method_selectors",
-            "generate_ingress_yaml",
-            "generate_egress_yaml",
-            "get_ingress_pattern",
-            "get_egress_pattern",
-        ]),
+        _build_toolset(
+            tool_filter=[
+                "check_vpc_sc_violations",
+                "troubleshoot_violation",
+                "get_method_selectors",
+                "generate_ingress_yaml",
+                "generate_egress_yaml",
+                "get_ingress_pattern",
+                "get_egress_pattern",
+            ]
+        ),
     ],
 )
 
@@ -167,7 +173,9 @@ get_ingress_pattern, get_egress_pattern.\
 infra_query = LlmAgent(
     model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
     name="infrastructure_query",
-    description="Queries live GCP infrastructure, runs diagnostics, and generates implementation guides with Terraform.",
+    description=(
+        "Queries live GCP infrastructure, runs diagnostics, and generates " "implementation guides with Terraform."
+    ),
     instruction="""\
 You are an infrastructure query and diagnostic specialist. Your job is to:
 1. List and describe access policies, perimeters, and access levels.
@@ -185,18 +193,20 @@ When users ask to scan or diagnose a project, use diagnose_project first,
 then generate_implementation_guide to produce the Terraform code.\
 """,
     tools=[
-        _build_toolset(tool_filter=[
-            "list_access_policies",
-            "list_perimeters",
-            "describe_perimeter",
-            "list_access_levels",
-            "describe_access_level",
-            "dry_run_status",
-            "update_perimeter_resources",
-            "update_perimeter_services",
-            "diagnose_project",
-            "generate_implementation_guide",
-        ]),
+        _build_toolset(
+            tool_filter=[
+                "list_access_policies",
+                "list_perimeters",
+                "describe_perimeter",
+                "list_access_levels",
+                "describe_access_level",
+                "dry_run_status",
+                "update_perimeter_resources",
+                "update_perimeter_services",
+                "diagnose_project",
+                "generate_implementation_guide",
+            ]
+        ),
     ],
 )
 

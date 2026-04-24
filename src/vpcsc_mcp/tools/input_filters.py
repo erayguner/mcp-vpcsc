@@ -39,9 +39,12 @@ _PII_PATTERNS: list[tuple[str, re.Pattern]] = [
 # ─── Secret patterns ──────────────────────────────────────────────────────
 
 _SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
-    ("gcp_sa_key_block", re.compile(
-        r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----",
-    )),
+    (
+        "gcp_sa_key_block",
+        re.compile(
+            r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----",
+        ),
+    ),
     ("gcp_sa_json", re.compile(r'"private_key"\s*:\s*"[^"]{50,}"')),
     ("oauth_token", re.compile(r"\bya29\.[A-Za-z0-9_\-]{20,}\b")),
     ("bearer_token", re.compile(r"\bBearer\s+[A-Za-z0-9_\-\.=]{20,}\b")),
@@ -50,10 +53,13 @@ _SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("github_token", re.compile(r"\bghp_[A-Za-z0-9]{36}\b")),
     ("github_oauth", re.compile(r"\bgho_[A-Za-z0-9]{36}\b")),
     ("slack_token", re.compile(r"\bxox[abps]-[A-Za-z0-9\-]{10,}\b")),
-    ("generic_api_key", re.compile(
-        r"\b(?:api[_\-]?key|apikey|secret)['\"\s:=]{1,5}['\"]?[A-Za-z0-9_\-]{20,}",
-        re.IGNORECASE,
-    )),
+    (
+        "generic_api_key",
+        re.compile(
+            r"\b(?:api[_\-]?key|apikey|secret)['\"\s:=]{1,5}['\"]?[A-Za-z0-9_\-]{20,}",
+            re.IGNORECASE,
+        ),
+    ),
 ]
 
 # ─── Prompt-injection heuristics ──────────────────────────────────────────

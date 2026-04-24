@@ -250,6 +250,7 @@ def register_rule_tools(mcp) -> None:
         # Check for remaining placeholders
         remaining = []
         import re
+
         for match in re.finditer(r"\{(\w+)\}", template):
             remaining.append(match.group(1))
 
@@ -290,6 +291,7 @@ def register_rule_tools(mcp) -> None:
 
         remaining = []
         import re
+
         for match in re.finditer(r"\{(\w+)\}", template):
             remaining.append(match.group(1))
 

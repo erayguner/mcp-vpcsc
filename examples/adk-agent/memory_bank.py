@@ -46,9 +46,7 @@ def create() -> None:
     engine = agent_engines.create(display_name="vpcsc-memory-bank")
     print(engine.resource_name)
     print(
-        "\nexport MEMORY_BANK_AGENT_ENGINE='"
-        + engine.resource_name
-        + "'  # add to your environment",
+        "\nexport MEMORY_BANK_AGENT_ENGINE='" + engine.resource_name + "'  # add to your environment",
     )
 
 

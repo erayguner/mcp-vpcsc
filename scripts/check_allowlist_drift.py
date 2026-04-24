@@ -63,8 +63,7 @@ def main() -> int:
         save_baseline(cur)
         print(f"baseline updated: {BASELINE_PATH}")
         print(
-            f"  subcommands={len(cur['subcommands'])} "
-            f"flags={len(cur['flags'])}",
+            f"  subcommands={len(cur['subcommands'])} " f"flags={len(cur['flags'])}",
         )
         return 0
 
@@ -81,8 +80,7 @@ def main() -> int:
 
     if not (added_sub or added_flg or removed_sub or removed_flg):
         print(
-            f"allowlist in sync with baseline "
-            f"(subcommands={len(cur_sub)}, flags={len(cur_flg)})",
+            f"allowlist in sync with baseline " f"(subcommands={len(cur_sub)}, flags={len(cur_flg)})",
         )
         return 0
 

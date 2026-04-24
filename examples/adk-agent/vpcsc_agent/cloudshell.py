@@ -20,7 +20,12 @@ def _build_toolset() -> McpToolset:
         "HOME": os.environ.get("HOME", "/tmp"),
         "VPCSC_MCP_TRANSPORT": "stdio",
     }
-    for key in ("GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_CLOUD_PROJECT", "CLOUDSDK_CONFIG", "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE"):
+    for key in (
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "GOOGLE_CLOUD_PROJECT",
+        "CLOUDSDK_CONFIG",
+        "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE",
+    ):
         if key in os.environ:
             subprocess_env[key] = os.environ[key]
 

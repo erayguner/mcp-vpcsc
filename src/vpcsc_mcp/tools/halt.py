@@ -64,7 +64,10 @@ class HaltRegistry:
         return removed is not None
 
     def is_halted(
-        self, *, principal: str | None = None, tool: str | None = None,
+        self,
+        *,
+        principal: str | None = None,
+        tool: str | None = None,
     ) -> HaltEntry | None:
         principal = principal or current_principal()
         with self._lock:
@@ -159,7 +162,6 @@ def register_halt_tools(mcp) -> None:
         for h in halts:
             ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(h["halted_at"]))
             lines.append(
-                f"  - scope={h['scope']} actor={h['actor']} since={ts}\n"
-                f"    reason: {h['reason']}",
+                f"  - scope={h['scope']} actor={h['actor']} since={ts}\n" f"    reason: {h['reason']}",
             )
         return "\n".join(lines)

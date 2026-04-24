@@ -115,11 +115,7 @@ def _sanitise_hcl_string(value: str) -> str:
         cleaned = res.cleaned if isinstance(res.cleaned, str) else str(res.cleaned)
 
     return (
-        cleaned.replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("\n", "\\n")
-        .replace("${", "$${")
-        .replace("%{", "%%{")
+        cleaned.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("${", "$${").replace("%{", "%%{")
     )
 
 
@@ -156,7 +152,8 @@ _TF_TIMEOUT = 60  # seconds per terraform command
 async def _run_tf(args: list[str], cwd: str) -> tuple[int, str, str]:
     """Run a terraform command and return (returncode, stdout, stderr)."""
     proc = await asyncio.create_subprocess_exec(
-        "terraform", *args,
+        "terraform",
+        *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=cwd,
@@ -234,7 +231,7 @@ def register_terraform_tools(mcp) -> None:
             access_levels_block = f"\n    access_levels       = {_hcl_list(al_refs, indent=4)}"
 
         block_type = "spec" if dry_run else "status"
-        dry_run_line = '\n  use_explicit_dry_run_spec = true' if dry_run else ""
+        dry_run_line = "\n  use_explicit_dry_run_spec = true" if dry_run else ""
 
         desc_line = ""
         if description:
@@ -397,9 +394,7 @@ def register_terraform_tools(mcp) -> None:
         if identity_type:
             from_parts.append(f'      identity_type = "{identity_type}"')
         elif identities:
-            from_parts.append(
-                f"      identities = {_hcl_list(identities, indent=6)}"
-            )
+            from_parts.append(f"      identities = {_hcl_list(identities, indent=6)}")
         else:
             from_parts.append('      identity_type = "ANY_IDENTITY"')
 
@@ -416,9 +411,7 @@ def register_terraform_tools(mcp) -> None:
         sources_block = ""
         if sources:
             source_entries = "\n      }\n      sources {\n".join(sources)
-            sources_block = (
-                f"\n      sources {{\n{source_entries}\n      }}"
-            )
+            sources_block = f"\n      sources {{\n{source_entries}\n      }}"
 
         from_block = "\n".join(from_parts)
 
@@ -437,9 +430,7 @@ def register_terraform_tools(mcp) -> None:
             for ms in selectors:
                 if "method" in ms:
                     method_lines.append(
-                        f'          method_selectors {{\n'
-                        f'            method = "{ms["method"]}"\n'
-                        f'          }}'
+                        f'          method_selectors {{\n' f'            method = "{ms["method"]}"\n' f'          }}'
                     )
                 elif "permission" in ms:
                     method_lines.append(
@@ -449,10 +440,10 @@ def register_terraform_tools(mcp) -> None:
                     )
             methods_hcl = "\n".join(method_lines)
             to_parts.append(
-                f'        operations {{\n'
+                f"        operations {{\n"
                 f'          service_name = "{service_name}"\n'
-                f'{methods_hcl}\n'
-                f'        }}'
+                f"{methods_hcl}\n"
+                f"        }}"
             )
 
         to_block = "\n".join(to_parts)
@@ -522,30 +513,18 @@ def register_terraform_tools(mcp) -> None:
         if identity_type:
             from_parts.append(f'      identity_type = "{identity_type}"')
         elif identities:
-            from_parts.append(
-                f"      identities = {_hcl_list(identities, indent=6)}"
-            )
+            from_parts.append(f"      identities = {_hcl_list(identities, indent=6)}")
         else:
             from_parts.append('      identity_type = "ANY_IDENTITY"')
 
         # egress_from.sources + source_restriction (provider >= 5.x)
         if source_project_numbers or source_access_level:
-            from_parts.append(
-                '      source_restriction = "SOURCE_RESTRICTION_ENABLED"'
-            )
+            from_parts.append('      source_restriction = "SOURCE_RESTRICTION_ENABLED"')
             if source_project_numbers:
                 for pn in source_project_numbers:
-                    from_parts.append(
-                        f"      sources {{\n"
-                        f'        resource = "projects/{pn}"\n'
-                        f"      }}"
-                    )
+                    from_parts.append(f"      sources {{\n" f'        resource = "projects/{pn}"\n' f"      }}")
             if source_access_level:
-                from_parts.append(
-                    f"      sources {{\n"
-                    f'        access_level = "{source_access_level}"\n'
-                    f"      }}"
-                )
+                from_parts.append(f"      sources {{\n" f'        access_level = "{source_access_level}"\n' f"      }}")
 
         from_block = "\n".join(from_parts)
 
@@ -569,9 +548,7 @@ def register_terraform_tools(mcp) -> None:
             for ms in selectors:
                 if "method" in ms:
                     method_lines.append(
-                        f'          method_selectors {{\n'
-                        f'            method = "{ms["method"]}"\n'
-                        f'          }}'
+                        f'          method_selectors {{\n' f'            method = "{ms["method"]}"\n' f'          }}'
                     )
                 elif "permission" in ms:
                     method_lines.append(
@@ -581,10 +558,10 @@ def register_terraform_tools(mcp) -> None:
                     )
             methods_hcl = "\n".join(method_lines)
             to_parts.append(
-                f'        operations {{\n'
+                f"        operations {{\n"
                 f'          service_name = "{service_name}"\n'
-                f'{methods_hcl}\n'
-                f'        }}'
+                f"{methods_hcl}\n"
+                f"        }}"
             )
 
         to_block = "\n".join(to_parts)
@@ -679,22 +656,12 @@ def register_terraform_tools(mcp) -> None:
         if identity_type:
             from_lines.append(f'    identity_type = "{identity_type}"')
         elif identities:
-            from_lines.append(
-                f"    identities = {_hcl_list(identities, indent=4)}"
-            )
+            from_lines.append(f"    identities = {_hcl_list(identities, indent=4)}")
         if source_access_level:
-            from_lines.append(
-                f"    sources {{\n"
-                f'      access_level = "{source_access_level}"\n'
-                f"    }}"
-            )
+            from_lines.append(f"    sources {{\n" f'      access_level = "{source_access_level}"\n' f"    }}")
         if source_project_numbers:
             for pn in source_project_numbers:
-                from_lines.append(
-                    f"    sources {{\n"
-                    f'      resource = "projects/{pn}"\n'
-                    f"    }}"
-                )
+                from_lines.append(f"    sources {{\n" f'      resource = "projects/{pn}"\n' f"    }}")
         from_block = "\n".join(from_lines)
 
         # Build ingress_to
@@ -707,24 +674,13 @@ def register_terraform_tools(mcp) -> None:
             ms_lines = []
             for ms in selectors:
                 if "method" in ms:
-                    ms_lines.append(
-                        f'      method_selectors {{\n'
-                        f'        method = "{ms["method"]}"\n'
-                        f'      }}'
-                    )
+                    ms_lines.append(f'      method_selectors {{\n' f'        method = "{ms["method"]}"\n' f'      }}')
                 elif "permission" in ms:
                     ms_lines.append(
-                        f'      method_selectors {{\n'
-                        f'        permission = "{ms["permission"]}"\n'
-                        f'      }}'
+                        f'      method_selectors {{\n' f'        permission = "{ms["permission"]}"\n' f'      }}'
                     )
             ms_block = "\n".join(ms_lines)
-            to_lines.append(
-                f'    operations {{\n'
-                f'      service_name = "{service_name}"\n'
-                f'{ms_block}\n'
-                f'    }}'
-            )
+            to_lines.append(f"    operations {{\n" f'      service_name = "{service_name}"\n' f"{ms_block}\n" f"    }}")
         to_block = "\n".join(to_lines)
 
         hcl = textwrap.dedent(f"""\
@@ -794,9 +750,7 @@ def register_terraform_tools(mcp) -> None:
         if identity_type:
             from_lines.append(f'    identity_type = "{identity_type}"')
         elif identities:
-            from_lines.append(
-                f"    identities = {_hcl_list(identities, indent=4)}"
-            )
+            from_lines.append(f"    identities = {_hcl_list(identities, indent=4)}")
         else:
             from_lines.append('    identity_type = "ANY_IDENTITY"')
         from_block = "\n".join(from_lines)
@@ -820,24 +774,13 @@ def register_terraform_tools(mcp) -> None:
             ms_lines = []
             for ms in selectors:
                 if "method" in ms:
-                    ms_lines.append(
-                        f'      method_selectors {{\n'
-                        f'        method = "{ms["method"]}"\n'
-                        f'      }}'
-                    )
+                    ms_lines.append(f'      method_selectors {{\n' f'        method = "{ms["method"]}"\n' f'      }}')
                 elif "permission" in ms:
                     ms_lines.append(
-                        f'      method_selectors {{\n'
-                        f'        permission = "{ms["permission"]}"\n'
-                        f'      }}'
+                        f'      method_selectors {{\n' f'        permission = "{ms["permission"]}"\n' f'      }}'
                     )
             ms_block = "\n".join(ms_lines)
-            to_lines.append(
-                f'    operations {{\n'
-                f'      service_name = "{service_name}"\n'
-                f'{ms_block}\n'
-                f'    }}'
-            )
+            to_lines.append(f"    operations {{\n" f'      service_name = "{service_name}"\n' f"{ms_block}\n" f"    }}")
         to_block = "\n".join(to_lines)
 
         hcl = textwrap.dedent(f"""\
@@ -903,7 +846,7 @@ def register_terraform_tools(mcp) -> None:
             access_levels_block = f"\n    access_levels       = {_hcl_list(al_refs, indent=4)}"
 
         block_type = "spec" if dry_run else "status"
-        dry_run_line = '\n  use_explicit_dry_run_spec = true' if dry_run else ""
+        dry_run_line = "\n  use_explicit_dry_run_spec = true" if dry_run else ""
 
         # Parse and build ingress policies
         ingress_blocks = ""
@@ -944,7 +887,6 @@ def register_terraform_tools(mcp) -> None:
         }}
         """)
         return _maybe_write_hcl(hcl, project_name, "perimeter_full", name, output_dir)
-
 
     @mcp.tool(annotations=DIAGNOSTIC)
     async def validate_terraform(hcl_code: str) -> str:
@@ -1057,7 +999,7 @@ def _build_ingress_hcl(rule: dict) -> str:
     """
     s = _sanitise_hcl_string
     title = s(str(rule.get("title", "Ingress Rule")))
-    lines = ['    ingress_policies {', f'      title = "{title}"', "      ingress_from {"]
+    lines = ["    ingress_policies {", f'      title = "{title}"', "      ingress_from {"]
 
     if "identity_type" in rule:
         lines.append(f'        identity_type = "{s(str(rule["identity_type"]))}"')
@@ -1101,7 +1043,7 @@ def _build_egress_hcl(rule: dict) -> str:
     """
     s = _sanitise_hcl_string
     title = s(str(rule.get("title", "Egress Rule")))
-    lines = ['    egress_policies {', f'      title = "{title}"', "      egress_from {"]
+    lines = ["    egress_policies {", f'      title = "{title}"', "      egress_from {"]
 
     if "identity_type" in rule:
         lines.append(f'        identity_type = "{s(str(rule["identity_type"]))}"')

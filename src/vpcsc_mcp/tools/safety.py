@@ -98,8 +98,7 @@ def sanitise_output(text: str, redact: bool = True) -> str:
     # Truncate
     if len(cleaned) > MAX_OUTPUT_LENGTH:
         cleaned = (
-            cleaned[:MAX_OUTPUT_LENGTH]
-            + f"\n\n[OUTPUT TRUNCATED — {len(text)} chars total, "
+            cleaned[:MAX_OUTPUT_LENGTH] + f"\n\n[OUTPUT TRUNCATED — {len(text)} chars total, "
             f"showing first {MAX_OUTPUT_LENGTH}]"
         )
 
@@ -141,34 +140,38 @@ def redact_sensitive_data(text: str) -> str:
 # Consolidated from gcloud_ops.py — single source of truth for what's allowed.
 
 # Allowed gcloud subcommands — prevents arbitrary command execution.
-ALLOWED_SUBCOMMANDS = frozenset({
-    "access-context-manager",
-    "config",
-    "compute",
-    "iam",
-    "logging",
-    "org-policies",
-    "organizations",
-    "projects",
-    "services",
-})
+ALLOWED_SUBCOMMANDS = frozenset(
+    {
+        "access-context-manager",
+        "config",
+        "compute",
+        "iam",
+        "logging",
+        "org-policies",
+        "organizations",
+        "projects",
+        "services",
+    }
+)
 
 # Only these gcloud flags are allowed. Prevents --impersonate-service-account,
 # --access-token-file, --configuration, and other privilege-escalation flags.
-ALLOWED_FLAGS = frozenset({
-    "--add-resources",
-    "--add-restricted-services",
-    "--enabled",
-    "--etag",
-    "--format",
-    "--freshness",
-    "--limit",
-    "--organization",
-    "--policy",
-    "--project",
-    "--remove-resources",
-    "--remove-restricted-services",
-})
+ALLOWED_FLAGS = frozenset(
+    {
+        "--add-resources",
+        "--add-restricted-services",
+        "--enabled",
+        "--etag",
+        "--format",
+        "--freshness",
+        "--limit",
+        "--organization",
+        "--policy",
+        "--project",
+        "--remove-resources",
+        "--remove-restricted-services",
+    }
+)
 
 # Pattern for safe argument values — alphanumeric, hyphens, underscores,
 # dots, slashes, colons, equals, at-signs, commas, spaces, and tabs.

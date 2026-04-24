@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 import yaml
 
 from vpcsc_mcp.server import mcp  # noqa: F401 — triggers register_rule_tools
@@ -24,9 +26,7 @@ class _MockMCP:
 
 def _load_rule(text: str) -> dict:
     """Strip header comments and parse the YAML rule list."""
-    yaml_part = "\n".join(
-        line for line in text.splitlines() if not line.startswith("#")
-    )
+    yaml_part = "\n".join(line for line in text.splitlines() if not line.startswith("#"))
     rules = yaml.safe_load(yaml_part)
     assert isinstance(rules, list) and len(rules) == 1
     return rules[0]
@@ -63,9 +63,7 @@ class TestIngressYAML:
         )
         rule = _load_rule(out)
         assert "operations" in rule["ingressTo"]
-        assert rule["ingressTo"]["operations"][0]["serviceName"] == (
-            "bigquery.googleapis.com"
-        )
+        assert rule["ingressTo"]["operations"][0]["serviceName"] == ("bigquery.googleapis.com")
         assert "roles" not in rule["ingressTo"]
 
     def test_vpc_network_source(self):
@@ -79,8 +77,13 @@ class TestIngressYAML:
         rule = _load_rule(out)
         sources = rule["ingressFrom"]["sources"]
         assert any(
-            s.get("resource", "").startswith("//compute.googleapis.com/")
+            (
+                (parsed := urlparse(f"https:{resource}")).hostname == "compute.googleapis.com"
+                and parsed.path.startswith("/projects/")
+            )
             for s in sources
+            for resource in [s.get("resource", "")]
+            if resource.startswith("//")
         )
 
     def test_target_resources_override(self):
@@ -158,23 +161,17 @@ class TestEgressYAML:
             source_project_numbers=["111111"],
         )
         rule = _load_rule(out)
-        assert rule["egressFrom"]["sourceRestriction"] == (
-            "SOURCE_RESTRICTION_ENABLED"
-        )
+        assert rule["egressFrom"]["sourceRestriction"] == ("SOURCE_RESTRICTION_ENABLED")
         assert rule["egressFrom"]["sources"] == [{"resource": "projects/111111"}]
 
     def test_source_restriction_enabled_for_access_level(self):
         m = _register()
         out = m.tools["generate_egress_yaml"](
             service_name="storage.googleapis.com",
-            source_access_level=(
-                "accessPolicies/123/accessLevels/corp_network"
-            ),
+            source_access_level=("accessPolicies/123/accessLevels/corp_network"),
         )
         rule = _load_rule(out)
-        assert rule["egressFrom"]["sourceRestriction"] == (
-            "SOURCE_RESTRICTION_ENABLED"
-        )
+        assert rule["egressFrom"]["sourceRestriction"] == ("SOURCE_RESTRICTION_ENABLED")
 
     def test_no_source_restriction_when_sources_unset(self):
         m = _register()

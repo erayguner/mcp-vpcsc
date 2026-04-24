@@ -42,16 +42,15 @@ async def main(query: str) -> None:
     agent = LlmAgent(
         model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
         name="vpcsc_helper",
-        instruction=(
-            "You are a VPC Service Controls specialist. "
-            "Use the available tools to help the user."
-        ),
+        instruction=("You are a VPC Service Controls specialist. " "Use the available tools to help the user."),
         tools=[mcp_toolset],
     )
 
     session_service = InMemorySessionService()
     session = await session_service.create_session(
-        state={}, app_name="vpcsc-mcp", user_id="cli-user",
+        state={},
+        app_name="vpcsc-mcp",
+        user_id="cli-user",
     )
 
     runner = Runner(

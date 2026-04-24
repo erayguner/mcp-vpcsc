@@ -31,8 +31,7 @@ COMMON_INGRESS_PATTERNS: dict[str, dict] = {
     "storage-read-from-access-level": {
         "title": "Allow corporate network to read Cloud Storage",
         "description": (
-            "Enables users on the corporate network (via access level) "
-            "to read GCS objects inside the perimeter."
+            "Enables users on the corporate network (via access level) " "to read GCS objects inside the perimeter."
         ),
         "template": {
             "ingressFrom": {
@@ -79,8 +78,7 @@ COMMON_INGRESS_PATTERNS: dict[str, dict] = {
     "cloud-build-deploy": {
         "title": "Allow Cloud Build to deploy into perimeter",
         "description": (
-            "Enables Cloud Build service agent from an external project "
-            "to deploy resources inside the perimeter."
+            "Enables Cloud Build service agent from an external project " "to deploy resources inside the perimeter."
         ),
         "template": {
             "ingressFrom": {
@@ -173,8 +171,7 @@ COMMON_EGRESS_PATTERNS: dict[str, dict] = {
     "bigquery-cross-project-query": {
         "title": "Allow BigQuery jobs to query external datasets",
         "description": (
-            "Enables service accounts inside the perimeter to run "
-            "BigQuery jobs that read from external projects."
+            "Enables service accounts inside the perimeter to run " "BigQuery jobs that read from external projects."
         ),
         "template": {
             "egressFrom": {
@@ -198,8 +195,7 @@ COMMON_EGRESS_PATTERNS: dict[str, dict] = {
     "storage-write-external": {
         "title": "Allow writing to external Cloud Storage bucket",
         "description": (
-            "Enables a service account inside the perimeter to write objects "
-            "to a GCS bucket in an external project."
+            "Enables a service account inside the perimeter to write objects " "to a GCS bucket in an external project."
         ),
         "template": {
             "egressFrom": {
@@ -223,8 +219,7 @@ COMMON_EGRESS_PATTERNS: dict[str, dict] = {
     "cloud-functions-deploy": {
         "title": "Allow Cloud Functions deployment to external storage",
         "description": (
-            "Enables Cloud Functions service agent to store function source "
-            "in external GCS during deployment."
+            "Enables Cloud Functions service agent to store function source " "in external GCS during deployment."
         ),
         "template": {
             "egressFrom": {
@@ -363,8 +358,7 @@ COMMON_EGRESS_PATTERNS: dict[str, dict] = {
 TROUBLESHOOTING_GUIDE: dict[str, dict] = {
     "RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER": {
         "meaning": (
-            "The API client and target resource are in different perimeters "
-            "with no bridge or ingress/egress rules"
+            "The API client and target resource are in different perimeters " "with no bridge or ingress/egress rules"
         ),
         "common_causes": [
             "Cross-project BigQuery query where projects are in different perimeters",

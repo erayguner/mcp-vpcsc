@@ -1,5 +1,7 @@
 FROM python:3.13-slim
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 WORKDIR /app
 
 # Install uv and gcloud CLI

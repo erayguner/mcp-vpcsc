@@ -27,7 +27,9 @@ def audit_dir(tmp_path):
 def audit_logger(audit_dir, tmp_path):
     key = b"test-key-32-bytes-long-for-hmac-aaa"
     logger_ = AuditLogger(
-        directory=audit_dir, dlq_path=tmp_path / "dlq.jsonl", key=key,
+        directory=audit_dir,
+        dlq_path=tmp_path / "dlq.jsonl",
+        key=key,
     )
     return logger_
 
@@ -108,8 +110,11 @@ def test_write_failure_goes_to_dlq(tmp_path, monkeypatch):
     audit_dir = tmp_path / "audit"
     audit_dir.mkdir()
     logger_ = AuditLogger(
-        directory=audit_dir, dlq_path=dlq, key=b"k",
+        directory=audit_dir,
+        dlq_path=dlq,
+        key=b"k",
     )
+
     # Simulate a disk write failure by patching the write path
     def boom(*_args, **_kwargs):
         raise OSError("disk full")
@@ -156,6 +161,7 @@ def test_audit_log_records_principal(tmp_path, monkeypatch):
             entry = audit_log(tool="test", args=["x"])
         finally:
             from vpcsc_mcp.tools.observability import reset_principal
+
             reset_principal(tok)
         assert entry["principal"] == "agent-alice"
     finally:

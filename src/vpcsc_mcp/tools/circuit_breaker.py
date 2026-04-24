@@ -86,7 +86,8 @@ class CircuitBreaker:
                     self._state = BreakerState.HALF_OPEN
                 else:
                     raise CircuitOpen(
-                        self.name, retry_after=self.cool_off_seconds - elapsed,
+                        self.name,
+                        retry_after=self.cool_off_seconds - elapsed,
                     )
 
     def record_success(self) -> None:
@@ -108,12 +109,10 @@ class CircuitBreaker:
                 self._state = BreakerState.OPEN
                 self._opened_at = time.monotonic()
                 self.cool_off_seconds = min(
-                    self.cool_off_seconds * 2, self.max_cool_off,
+                    self.cool_off_seconds * 2,
+                    self.max_cool_off,
                 )
-            elif (
-                self._state is BreakerState.CLOSED
-                and self._failures >= self.failure_threshold
-            ):
+            elif self._state is BreakerState.CLOSED and self._failures >= self.failure_threshold:
                 self._state = BreakerState.OPEN
                 self._opened_at = time.monotonic()
 

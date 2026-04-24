@@ -56,7 +56,10 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
     if halt is not None:
         _log(f"HALTED scope={halt.scope} reason={halt.reason}")
         audit_log(
-            tool=tool_name, args=args, success=False, halted=True,
+            tool=tool_name,
+            args=args,
+            success=False,
+            halted=True,
             error=f"halted:{halt.scope}:{halt.reason}",
         )
         return {
@@ -71,7 +74,9 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
     except CircuitOpen as exc:
         _log(f"CIRCUIT OPEN: {exc}")
         audit_log(
-            tool=tool_name, args=args, success=False,
+            tool=tool_name,
+            args=args,
+            success=False,
             error=f"circuit_open:retry_after={exc.retry_after:.1f}s",
         )
         return {
@@ -116,7 +121,8 @@ async def run_gcloud(args: list[str], project: str | None = None) -> dict:
             stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await asyncio.wait_for(
-            proc.communicate(), timeout=_GCLOUD_TIMEOUT,
+            proc.communicate(),
+            timeout=_GCLOUD_TIMEOUT,
         )
     except asyncio.TimeoutError:
         elapsed_ms = (time.monotonic() - t0) * 1000
@@ -197,10 +203,14 @@ def register_gcloud_tools(mcp) -> None:
         Args:
             organization_id: The GCP organisation ID (numeric).
         """
-        result = await run_gcloud([
-            "access-context-manager", "policies", "list",
-            f"--organization={organization_id}",
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "policies",
+                "list",
+                f"--organization={organization_id}",
+            ]
+        )
         if "error" in result:
             return f"Error listing policies: {result['error']}"
         policies = result.get("result", [])
@@ -223,10 +233,14 @@ def register_gcloud_tools(mcp) -> None:
         Args:
             policy_id: The access policy ID (numeric).
         """
-        result = await run_gcloud([
-            "access-context-manager", "perimeters", "list",
-            f"--policy={policy_id}",
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "perimeters",
+                "list",
+                f"--policy={policy_id}",
+            ]
+        )
         if "error" in result:
             return f"Error listing perimeters: {result['error']}"
         perimeters = result.get("result", [])
@@ -254,10 +268,15 @@ def register_gcloud_tools(mcp) -> None:
             policy_id: The access policy ID (numeric).
             perimeter_name: The perimeter name (not the full resource path).
         """
-        result = await run_gcloud([
-            "access-context-manager", "perimeters", "describe", perimeter_name,
-            f"--policy={policy_id}",
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "perimeters",
+                "describe",
+                perimeter_name,
+                f"--policy={policy_id}",
+            ]
+        )
         if "error" in result:
             return f"Error describing perimeter: {result['error']}"
         p = result.get("result", result.get("result_text", {}))
@@ -270,10 +289,14 @@ def register_gcloud_tools(mcp) -> None:
         Args:
             policy_id: The access policy ID (numeric).
         """
-        result = await run_gcloud([
-            "access-context-manager", "levels", "list",
-            f"--policy={policy_id}",
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "levels",
+                "list",
+                f"--policy={policy_id}",
+            ]
+        )
         if "error" in result:
             return f"Error listing access levels: {result['error']}"
         levels = result.get("result", [])
@@ -304,10 +327,15 @@ def register_gcloud_tools(mcp) -> None:
             policy_id: The access policy ID (numeric).
             level_name: The access level name (not the full resource path).
         """
-        result = await run_gcloud([
-            "access-context-manager", "levels", "describe", level_name,
-            f"--policy={policy_id}",
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "levels",
+                "describe",
+                level_name,
+                f"--policy={policy_id}",
+            ]
+        )
         if "error" in result:
             return f"Error describing access level: {result['error']}"
         lev = result.get("result", result.get("result_text", {}))
@@ -327,15 +355,18 @@ def register_gcloud_tools(mcp) -> None:
             limit: Maximum number of log entries to return. Default 25.
         """
         log_filter = (
-            'protoPayload.metadata.@type='
-            '"type.googleapis.com/google.cloud.audit.VpcServiceControlAuditMetadata"'
+            "protoPayload.metadata.@type=" '"type.googleapis.com/google.cloud.audit.VpcServiceControlAuditMetadata"'
         )
-        result = await run_gcloud([
-            "logging", "read", log_filter,
-            f"--project={project_id}",
-            f"--freshness={freshness}",
-            f"--limit={limit}",
-        ])
+        result = await run_gcloud(
+            [
+                "logging",
+                "read",
+                log_filter,
+                f"--project={project_id}",
+                f"--freshness={freshness}",
+                f"--limit={limit}",
+            ]
+        )
         if "error" in result:
             return f"Error querying violations: {result['error']}"
         entries = result.get("result", [])
@@ -370,17 +401,18 @@ def register_gcloud_tools(mcp) -> None:
         Args:
             policy_id: The access policy ID (numeric).
         """
-        result = await run_gcloud([
-            "access-context-manager", "perimeters", "list",
-            f"--policy={policy_id}",
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "perimeters",
+                "list",
+                f"--policy={policy_id}",
+            ]
+        )
         if "error" in result:
             return f"Error listing perimeters: {result['error']}"
         perimeters = result.get("result", [])
-        dry_run_perimeters = [
-            p for p in perimeters
-            if p.get("useExplicitDryRunSpec") or p.get("spec")
-        ]
+        dry_run_perimeters = [p for p in perimeters if p.get("useExplicitDryRunSpec") or p.get("spec")]
         if not dry_run_perimeters:
             return f"No perimeters with dry-run configurations found in policy {policy_id}."
 
@@ -416,9 +448,13 @@ def register_gcloud_tools(mcp) -> None:
         support VPC Service Controls, including their support stage (GA,
         Preview) and whether they are available on the restricted VIP.
         """
-        result = await run_gcloud([
-            "access-context-manager", "supported-services", "list",
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "supported-services",
+                "list",
+            ]
+        )
         if "error" in result:
             return f"Error listing supported services: {result['error']}"
         services = result.get("result", [])
@@ -468,9 +504,14 @@ def register_gcloud_tools(mcp) -> None:
         if not svc.endswith(".googleapis.com"):
             svc = f"{svc}.googleapis.com"
 
-        result = await run_gcloud([
-            "access-context-manager", "supported-services", "describe", svc,
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "supported-services",
+                "describe",
+                svc,
+            ]
+        )
         if "error" in result:
             return f"Error describing service {svc}: {result['error']}"
 
@@ -503,9 +544,7 @@ def register_gcloud_tools(mcp) -> None:
                     lines.append(f"  method: {method}")
                 elif permission:
                     lines.append(f"  permission: {permission}")
-            lines.append(
-                "\nThese are the exact selectors you can use in ingress/egress rules."
-            )
+            lines.append("\nThese are the exact selectors you can use in ingress/egress rules.")
         else:
             lines.append("\nNo method-level restrictions listed (use {'method': '*'} for all).")
 
@@ -572,10 +611,15 @@ def register_gcloud_tools(mcp) -> None:
         Args:
             policy_id: The access policy ID (numeric).
         """
-        result = await run_gcloud([
-            "access-context-manager", "perimeters", "dry-run", "list",
-            f"--policy={policy_id}",
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "perimeters",
+                "dry-run",
+                "list",
+                f"--policy={policy_id}",
+            ]
+        )
         if "error" in result:
             return f"Error listing dry-run configs: {result['error']}"
         entries = result.get("result", result.get("result_text", []))
@@ -625,11 +669,16 @@ def register_gcloud_tools(mcp) -> None:
             )
 
         _log(f"WRITE: enforce_dry_run_perimeter({perimeter_name}) — confirm=True, executing")
-        result = await run_gcloud([
-            "access-context-manager", "perimeters", "dry-run", "enforce",
-            perimeter_name,
-            f"--policy={policy_id}",
-        ])
+        result = await run_gcloud(
+            [
+                "access-context-manager",
+                "perimeters",
+                "dry-run",
+                "enforce",
+                perimeter_name,
+                f"--policy={policy_id}",
+            ]
+        )
         if "error" in result:
             return f"Error enforcing dry-run config: {result['error']}"
         return (
@@ -669,7 +718,10 @@ def register_gcloud_tools(mcp) -> None:
 
         _log("WRITE: enforce_all_dry_run_perimeters — confirm=True, executing")
         args = [
-            "access-context-manager", "perimeters", "dry-run", "enforce-all",
+            "access-context-manager",
+            "perimeters",
+            "dry-run",
+            "enforce-all",
             f"--policy={policy_id}",
         ]
         if etag:
