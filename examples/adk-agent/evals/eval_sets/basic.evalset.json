@@ -1,0 +1,96 @@
+{
+  "eval_set_id": "vpcsc_basic",
+  "name": "VPC-SC basic agent behaviours",
+  "description": "Golden examples for tool selection on common VPC-SC tasks.",
+  "eval_cases": [
+    {
+      "eval_id": "list_perimeters",
+      "conversation": [
+        {
+          "invocation_id": "list-1",
+          "user_content": {
+            "parts": [{"text": "List all VPC-SC perimeters in policy accessPolicies/123."}],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [{"text": "Here are the perimeters in your policy."}],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {"name": "list_perimeters", "args": {"policy": "accessPolicies/123"}}
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "vpcsc_helper",
+        "user_id": "eval-user",
+        "state": {}
+      }
+    },
+    {
+      "eval_id": "generate_perimeter_terraform",
+      "conversation": [
+        {
+          "invocation_id": "tf-1",
+          "user_content": {
+            "parts": [{"text": "Generate Terraform for a dry-run perimeter protecting storage.googleapis.com for project my-proj."}],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [{"text": "Here is the Terraform configuration."}],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "generate_perimeter_terraform",
+                "args": {
+                  "name": "my_perimeter",
+                  "restricted_services": ["storage.googleapis.com"],
+                  "projects": ["my-proj"],
+                  "dry_run": true
+                }
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "vpcsc_helper",
+        "user_id": "eval-user",
+        "state": {}
+      }
+    },
+    {
+      "eval_id": "troubleshoot_denial",
+      "conversation": [
+        {
+          "invocation_id": "tb-1",
+          "user_content": {
+            "parts": [{"text": "I got a REQUEST_DENIED on a BigQuery query from service account sa@my-proj.iam.gserviceaccount.com. Help."}],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [{"text": "This is likely an egress rule issue."}],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {"name": "analyze_violation", "args": {}}
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "vpcsc_helper",
+        "user_id": "eval-user",
+        "state": {}
+      }
+    }
+  ]
+}

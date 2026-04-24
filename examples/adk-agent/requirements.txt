@@ -1,2 +1,6 @@
 google-adk>=1.27.0
 python-dotenv>=1.0.0
+
+# Optional — Gemini Enterprise Agent Platform integrations.
+# Uncomment to enable Agent Engine deploy, Memory Bank, and the eval harness.
+# google-cloud-aiplatform[adk,agent_engines]>=1.95.0
