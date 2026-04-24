@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 import yaml
 
 from vpcsc_mcp.server import mcp  # noqa: F401 — triggers register_rule_tools
@@ -74,7 +76,15 @@ class TestIngressYAML:
         )
         rule = _load_rule(out)
         sources = rule["ingressFrom"]["sources"]
-        assert any(s.get("resource", "").startswith("//compute.googleapis.com/") for s in sources)
+        assert any(
+            (
+                (parsed := urlparse(f"https:{resource}")).hostname == "compute.googleapis.com"
+                and parsed.path.startswith("/projects/")
+            )
+            for s in sources
+            for resource in [s.get("resource", "")]
+            if resource.startswith("//")
+        )
 
     def test_target_resources_override(self):
         m = _register()
