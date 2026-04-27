@@ -47,3 +47,6 @@ audit-*.jsonl
 # OS
 .DS_Store
 Thumbs.db
+/AGENT_GOVERNANCE_FRAMEWORK.md
+/CLAUDE.md
+/src/vpcsc_mcp/.claudeignore
